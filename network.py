@@ -1,5 +1,6 @@
 import socket
 import time
+import threading
 
 INITIAL_ADDRS = ["127.0.0.1:5001", "127.0.0.1:5002"]
 
@@ -17,14 +18,18 @@ def IntToBytes(i, size=4):
 def BytesToInt(b):
     return int.from_bytes(b, "big")
 
+
 class Socket():
-    def __init__(self, sock=None):
+    def __init__(self, sock=None, blocking=True):
         self.sock = None
         
         if sock:
             self.sock = sock
         else:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        if blocking is not None:
+            self.sock.setblocking(blocking)
 
     def Connect(self, hostname, port):
         self.sock.connect((hostname, port))
@@ -37,7 +42,7 @@ class Socket():
 
     def Accept(self):
         (clientSock, clientAddress) = self.sock.accept()
-        return Socket(clientSock), clientAddress
+        return Socket(sock=clientSock), clientAddress
 
     def Close(self):
         self.sock.close()
@@ -81,6 +86,7 @@ class Socket():
         payload = b''.join(chunks)
         return msgType, payload
 
+
 class Client:
     def __init__(self, hostname, port):
         self.hostname = hostname
@@ -102,40 +108,66 @@ class Client:
         self.sock.Close()
         self.sock = None
 
+
 class Server:
     def __init__(self, port):
         self.sock = None
         self.port = port
+        self.active = False
 
     def IsBound(self):
         return self.sock != None
 
     def Bind(self):
-        self.sock = Socket()
+        # Create, bind and listen server socket
+        self.sock = Socket(blocking=False)
         self.sock.Bind(socket.gethostname(), self.port)
         self.sock.Listen(5)
+        print ("Listening to port", self.port)
 
-        while True:
-            print ("Listening to port", self.port)
-            (clientSock, clientAddress) = self.sock.Accept()
-            
-            print("Accepted connection:", clientAddress)
-            
-            while clientSock.IsConnected():
-                msgType, msg = clientSock.Receive()
-                print ("  Received:", msgType)
-                if not self.ProcessMessage(msgType, msg, clientSock):
-                    if clientSock.IsConnected():
-                        clientSock.Close()
-                    self.sock.Close()
-                    return
-            
+        threads = []
+        self.active = True
+       
+        while self.active:
+            try:
+                (clientSock, clientAddress) = self.sock.Accept()
+                t = threading.Thread(name='Client_%s:%d' % clientAddress,
+                                     target=self._HandleClient,
+                                     args=(clientSock, clientAddress))
+                threads.append(t)
+                t.start()
+            except BlockingIOError:
+                time.sleep(0.1) # TODO: configure this?
+                pass
+
+            # Cleanup dead threads
+            threads = [t for t in threads if t.is_alive()]
+
+        # Wait for all live threads to end
+        for t in threads:
+            t.join()
+
+        # Close the listening socket
+        self.Close()
+        
+    def Stop(self):
+        self.active = False
+
     def Close(self):
         self.sock.Close()
         self.sock = None
 
     def ProcessMessage(self, msgType, msg, clientSock):
         raise NotImplementedError
+
+    def _HandleClient(self, clientSock, clientAddress):
+        print("Accepted connection:", clientAddress)
+
+        while clientSock.IsConnected():
+            msgType, msg = clientSock.Receive()
+            print ("  Received:", msgType)
+            self.ProcessMessage(msgType, msg, clientSock)
+
 
 
 class TestClient(Client):
@@ -152,22 +184,20 @@ class TestClient(Client):
         msgType, _msg = self.sock.Receive()
         return msgType == 'Bye!'
 
+
 class TestServer(Server):
     def ProcessMessage(self, msgType, msg, clientSock):
         if msgType == 'Done':
             clientSock.Close()
-            return True
         
         elif msgType == 'Ping':
-            print( " -> Ping: ", msg)
             clientSock.Send('Pong')
-            return True
 
         if msgType == 'Stop':
             clientSock.Send('Bye!')
-            return False
+            clientSock.Close()
+            self.Stop()
 
-        return True
 
 if __name__ == '__main__':
     import sys
@@ -179,13 +209,21 @@ if __name__ == '__main__':
             ok = True
             server = TestServer(5001)
             server.Bind()
-        
+
         elif sys.argv[1] == 'client':
             ok = True
             client = TestClient(GetHostname(), 5001)
             client.Connect()
-            print("Ping 1:", client.Ping())
-            print("Ping 2:", client.Ping())
+            for i in range(5) :
+                print("Ping %d:" % i, client.Ping())
+                time.sleep(1)
+            client.Done()
+        
+        elif sys.argv[1] == 'ping':
+            ok = True
+            client = TestClient(GetHostname(), 5001)
+            client.Connect()
+            print("Ping:", client.Ping())
             client.Done()
 
         elif sys.argv[1] == 'stop':
@@ -195,4 +233,4 @@ if __name__ == '__main__':
             client.Stop()
             
     if not ok:
-        print("Usage: %s [server|ping|stop]" % sys.argv[0])
+        print("Usage: %s [server|client|ping|stop]" % sys.argv[0])
