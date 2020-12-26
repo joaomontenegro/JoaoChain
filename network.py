@@ -2,8 +2,6 @@ import socket
 import time
 import threading
 
-INITIAL_ADDRS = ["127.0.0.1:5001", "127.0.0.1:5002"]
-
 def GetHostname():
     return socket.gethostname()
 
@@ -118,7 +116,7 @@ class Server:
     def IsBound(self):
         return self.sock != None
 
-    def Bind(self):
+    def Start(self):
         # Create, bind and listen server socket
         self.sock = Socket(blocking=False)
         self.sock.Bind(socket.gethostname(), self.port)
@@ -169,7 +167,6 @@ class Server:
             self.ProcessMessage(msgType, msg, clientSock)
 
 
-
 class TestClient(Client):
     def Ping(self):
         self.sock.Send('Ping')
@@ -208,7 +205,7 @@ if __name__ == '__main__':
         if sys.argv[1] == 'server':
             ok = True
             server = TestServer(5001)
-            server.Bind()
+            server.Start()
 
         elif sys.argv[1] == 'client':
             ok = True
