@@ -1,6 +1,7 @@
 import socket
 import time
 import threading
+import utils
 
 def GetHostname():
     return socket.gethostname()
@@ -9,13 +10,6 @@ class Message:
     def __init__(self, msgType, payload):
         self.msgType = msgType[:12]
         self.payload = payload
-
-def IntToBytes(i, size=4):
-    return i.to_bytes(size, "big")
-
-def BytesToInt(b):
-    return int.from_bytes(b, "big")
-
 
 class Socket():
     def __init__(self, sock=None, blocking=True):
@@ -55,7 +49,7 @@ class Socket():
         msgLen = 12 + 4 + payloadLen # type|size|payload
 
         b = msgType.ljust(12).encode()
-        b += IntToBytes(payloadLen)
+        b += utils.IntToBytes(payloadLen)
         b += payload
         
         while totalSent < msgLen:
@@ -70,7 +64,7 @@ class Socket():
         if chunk == b'':
                 raise RuntimeError("socket connection broken")
         msgType = chunk[:12].decode().rstrip()
-        payloadLen = BytesToInt(chunk[12:16])
+        payloadLen = utils.BytesToInt(chunk[12:16])
 
         chunks = []
         bytesReceived = 0

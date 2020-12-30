@@ -43,11 +43,11 @@ class PeerClient(network.Client):
 
 
 class PeerServer(network.Server):
-    def __init__(self, port, p2p):
+    def __init__(self, port, peerManager):
         super().__init__(port)
 
         self.version = 1
-        self.p2p = p2p
+        self.peerManager = peerManager
 
     def ProcessMessage(self, msgType, msg, clientSock):
         if msgType == 'Version':
@@ -57,7 +57,8 @@ class PeerServer(network.Server):
                 clientSock.Send('VersionNO')
 
         elif msgType == 'GetAddrs':
-            addrsBytes = ';'.join(self.p2p.peerAddrs).encode()
+            peerAddrs = self.peerManager.GetPeerAddrs()
+            addrsBytes = ';'.join(peerAddrs).encode()
             clientSock.Send('Addrs', addrsBytes) 
 
         if msgType == 'Close':
@@ -69,9 +70,12 @@ class PeerServer(network.Server):
             self.Stop()
     
 
-class P2P:
+class PeerManager:
     def __init__(self):
         self.peerAddrs = list(INITIAL_ADDRS)
+
+    def GetPeerAddrs(self):
+        return list(self.peerAddrs)
 
 
 if __name__ == '__main__':
@@ -82,8 +86,8 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         if sys.argv[1] == 'server':
             ok = True
-            p2p = P2P()
-            server = PeerServer(5001, p2p)
+            peerManager = PeerManager()
+            server = PeerServer(5001, peerManager)
             server.Start()
 
         elif sys.argv[1] == 'client':
@@ -102,7 +106,4 @@ if __name__ == '__main__':
 
     if not ok:
         print("Usage: %s [server|client|stop]" % sys.argv[0])
-
-
-    
 
