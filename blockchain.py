@@ -67,7 +67,12 @@ class Blockchain:
         return chain
 
     def GetBalance(self, addr, hash):
-        return self.balances.get(hash, {}).get(addr, None)
+        chain = self.GetChain(hash)
+        for block in chain:
+            balance = self.balances.get(block.GetHash()).get(addr, None)
+            if balance is not None:
+                return balance
+        return 0
 
     def Mine(self, block, miner):
         block.miner = miner
@@ -130,7 +135,8 @@ class Blockchain:
 
     def _GetBalanceInChain(self, addr, chain):
         for ancestor in chain:
-            balance = self.GetBalance(addr, ancestor.GetHash())
+            hash = ancestor.GetHash()
+            balance = self.balances.get(hash, {}).get(addr, None)
             if balance is not None:
                 return balance
         return 0
@@ -144,17 +150,18 @@ if __name__ == '__main__':
     miner = hashlib.sha256(b'miner123').hexdigest()
     print("Miner: %s\n" % miner)
 
-    # Result: 1:1, 2:5, 3:0, 4:1, 5:3
-    t0 = transaction.Transaction(miner, "1111", 10)
+    addrs = ["0000", "1111", "2222", "3333", "4444", "5555"]
+
+    t0 = transaction.Transaction(miner, addrs[1], 10)
     t0.Sign(t0.GetHash())
-    t1 = transaction.Transaction("1111", "2222", 5)
+    t1 = transaction.Transaction(addrs[1], addrs[2], 5)
     t1.Sign(t1.GetHash())
-    t2 = transaction.Transaction("1111", "3333", 6)
+    t2 = transaction.Transaction(addrs[1], addrs[3], 4)
     t2.Sign(t2.GetHash())
     
-    t3 = transaction.Transaction("3333", "4444", 1)
+    t3 = transaction.Transaction(addrs[3], addrs[4], 1)
     t3.Sign(t3.GetHash())
-    t4 = transaction.Transaction("3333", "5555", 3)
+    t4 = transaction.Transaction(addrs[3], addrs[5], 3)
     t4.Sign(t4.GetHash())
 
     block0 = block.Block(None, [], utils.GetCurrentTime())
@@ -189,5 +196,12 @@ if __name__ == '__main__':
 
         i += 1
     print()
-    print("Balances")
+
+    # Expectd Result: m:30, 0:0, 1:1, 2:5, 3:0, 4:1, 5:3
+    hash = block2.GetHash()
+    print("Balances:")
+    print ("   Miner: %d" % bc.GetBalance(miner, hash))
+    for addr in addrs:
+        print("   %s: %d" % (addr,  bc.GetBalance(addr, hash)))
+
     
