@@ -19,6 +19,8 @@ class Blockchain:
         self.difficulty = 1
         self.reward     = 10
         self.balances   = {}
+        self.highest    = None
+        self.height     = 0
 
     def SetDifficulty(self, newDifficulty):
         self.difficulty = newDifficulty
@@ -43,11 +45,17 @@ class Blockchain:
             Log("Invalid Tx Sigs for %s" % block)
             return False
 
-        blockBalances = self._CalculateBalances(block)
+        chain = self.GetChain(block.parent)
+        blockBalances = self._CalculateBalances(block, chain)
         if blockBalances is None:
             Log("Invalid Balances for %s" % block)
             return False
         self.balances[hash] = blockBalances
+
+        blockHeight = len(chain) + 1
+        if blockHeight > self.height:
+            self.height = blockHeight
+            self.highest = hash
 
         self.blocks[hash] = block
         self.balances[hash] = blockBalances
@@ -56,6 +64,11 @@ class Blockchain:
 
     def GetBlock(self, hash):
         return self.blocks.get(hash, None)
+
+    def GetHighestBlock(self):
+        if self.highest is None:
+            return None
+        return self.GetBlock(self.highest)
 
     def GetChain(self, hash):
         chain = []
@@ -66,7 +79,12 @@ class Blockchain:
             hash = block.parent
         return chain
 
-    def GetBalance(self, addr, hash):
+    def GetBalance(self, addr, hash=None):
+        if hash is None:
+            if self.highest is None:
+                return None
+            hash = self.highest
+
         chain = self.GetChain(hash)
         for block in chain:
             balance = self.balances.get(block.GetHash()).get(addr, None)
@@ -108,9 +126,7 @@ class Blockchain:
                 return False
         return True
 
-    def _CalculateBalances(self, block):
-        chain = self.GetChain(block.parent)
-        
+    def _CalculateBalances(self, block, chain):
         balances = {}
         for tx in block.transactions:
             Log("-> Tx: %s" % tx)
@@ -198,10 +214,7 @@ if __name__ == '__main__':
     print()
 
     # Expectd Result: m:30, 0:0, 1:1, 2:5, 3:0, 4:1, 5:3
-    hash = block2.GetHash()
     print("Balances:")
-    print ("   Miner: %d" % bc.GetBalance(miner, hash))
+    print ("   Miner: %d" % bc.GetBalance(miner))
     for addr in addrs:
-        print("   %s: %d" % (addr,  bc.GetBalance(addr, hash)))
-
-    
+        print("   %s: %d" % (addr,  bc.GetBalance(addr)))
