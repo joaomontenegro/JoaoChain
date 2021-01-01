@@ -84,17 +84,33 @@ class Client:
         self.hostname = hostname
         self.port = port
         self.sock = None
-    
+
+    def __repr__(self):
+        return 'Client(%s:%d)' % (self.hostname, self.port)
+
+    def __del__(self):
+        if self.IsConnected():
+            self.Close()
+
     def IsConnected(self):
         return self.sock != None
 
     def Connect(self):
+
+        # todo: catch exception?
         if self.IsConnected():
             raise RuntimeError("Already Connected to: %s:%d" % (self.hostname, self.port))
 
-        self.sock = Socket()
-        self.sock.Connect(self.hostname, self.port)
-        print ("Connected to %s:%d" % (self.hostname, self.port))
+        try:
+            self.sock = Socket()
+            print ("Connecting to %s:%d" % (self.hostname, self.port))
+            self.sock.Connect(self.hostname, self.port)
+            print ("Connected to %s:%d" % (self.hostname, self.port))
+            return True
+        except ConnectionRefusedError:
+            self.sock = None
+            print ("Connection refused: %s:%d" % (self.hostname, self.port))
+            return False
 
     def Close(self):
         self.sock.Close()
@@ -106,6 +122,12 @@ class Server:
         self.sock = None
         self.port = port
         self.active = False
+
+    def __repr__(self):
+        return 'Server(%d)' % (self.port)
+
+    def __del__(self):
+        self.Close()
 
     def IsBound(self):
         return self.sock != None
@@ -146,8 +168,9 @@ class Server:
         self.active = False
 
     def Close(self):
-        self.sock.Close()
-        self.sock = None
+        if self.sock is not None:
+            self.sock.Close()
+            self.sock = None
 
     def ProcessMessage(self, msgType, msg, clientSock):
         raise NotImplementedError
@@ -159,7 +182,6 @@ class Server:
             msgType, msg = clientSock.Receive()
             print ("  Received:", msgType)
             self.ProcessMessage(msgType, msg, clientSock)
-
 
 class TestClient(Client):
     def Ping(self):
