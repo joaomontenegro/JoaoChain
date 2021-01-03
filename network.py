@@ -3,6 +3,9 @@ import time
 import threading
 import utils
 
+LISTEN_SLEEP_TIME = 0.1
+CONNECTION_TIMEOUT = 0.5
+
 def GetHostname():
     return socket.gethostname()
 
@@ -20,11 +23,13 @@ class Socket():
         else:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        if blocking is not None:
-            self.sock.setblocking(blocking)
+        self.sock.setblocking(blocking)
 
     def Connect(self, hostname, port):
+        t = self.sock.gettimeout()
+        self.sock.settimeout(CONNECTION_TIMEOUT)
         self.sock.connect((hostname, port))
+        self.sock.settimeout(t)
 
     def Bind(self, hostname, port):
         self.sock.bind((hostname, port))
@@ -96,8 +101,6 @@ class Client:
         return self.sock != None
 
     def Connect(self):
-
-        # todo: catch exception?
         if self.IsConnected():
             raise RuntimeError("Already Connected to: %s:%d" % (self.hostname, self.port))
 
@@ -106,7 +109,7 @@ class Client:
             self.sock.Connect(self.hostname, self.port)
             print ("Connected to %s:%d" % (self.hostname, self.port))
             return True
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, TimeoutError, socket.timeout):
             self.sock = None
             print ("Connection refused: %s:%d" % (self.hostname, self.port))
             return False
@@ -118,7 +121,7 @@ class Client:
         try:
             self.sock.Send(msgType, payload)
             return True
-        except ConnectionError:
+        except (ConnectionError, OSError):
             self.sock = None
             return False
 
@@ -133,8 +136,9 @@ class Client:
             return None, None
 
     def Close(self):
-        self.sock.Close()
-        self.sock = None
+        if self.IsConnected():
+            self.sock.Close()
+            self.sock = None
 
 
 class Server:
@@ -179,7 +183,7 @@ class Server:
                 threads.append(t)
                 t.start()
             except BlockingIOError:
-                time.sleep(0.1) # TODO: configure this?
+                time.sleep(LISTEN_SLEEP_TIME)
                 pass
 
             # Cleanup dead threads

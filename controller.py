@@ -70,21 +70,6 @@ class Controller:
         return addrs
 
     def AddPeer(self, hostname, port):
-        self._AddPeer(hostname, port)
-
-    def _HasClient(self, hostname, port):
-        for client in self.clients:
-            if client.hostname == hostname and client.port == port:
-                return True
-        return False
-
-    def _IsMe(self, hostname, port):
-        return (self.server and
-                    hostname in (network.GetHostname(), 'localhost', '127.0.0.1') and
-                    port == self.server.port)
-            
-
-    def _AddPeer(self, hostname, port):
         #todo protect threading
         if not self._HasClient(hostname, port) and not self._IsMe(hostname, port):
             client = PeerClient(hostname, port, self)
@@ -99,10 +84,25 @@ class Controller:
                     Log("Invalid peer version:%d" % peerVersion)
         return False
 
+    def RemovePeer(self, hostname, port):
+        self.clients = [c for c in self.clients if not (c.hostname == hostname and c.port == port)]
+
+    def _HasClient(self, hostname, port):
+        for client in self.clients:
+            if client.hostname == hostname and client.port == port:
+                return True
+        return False
+
+    def _IsMe(self, hostname, port):
+        return (self.server and
+                    hostname in (network.GetHostname(), 'localhost', '127.0.0.1') and
+                    port == self.server.port)
+            
+
     def _AddInitialPeers(self):
         for addr in INITIAL_ADDRS:
             hostname, port = addr
-            self._AddPeer(hostname, port)
+            self.AddPeer(hostname, port)
 
     def _SanitizePeers(self):
         newClients = []
@@ -130,7 +130,7 @@ class Controller:
             addrs = client.GetAddrs()
             for addr in addrs:
                 hostname, port = addr
-                self._AddPeer(hostname, port)
+                self.AddPeer(hostname, port)
                 if len(self.clients) >= NUM_PEERS:
                     return
 
@@ -163,7 +163,7 @@ class PeerClient(network.Client):
         # Get the server address
         if self.controller.server:
             serverPort = self.controller.server.port
-            outMsg = ("%s:%d" % (self.hostname, serverPort)).encode()
+            outMsg = ("%s:%d" % (network.GetHostname(), serverPort)).encode()
         else:
             outMsg = b''
 
