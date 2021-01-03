@@ -85,6 +85,7 @@ class Controller:
         return False
 
     def RemovePeer(self, hostname, port):
+        print("Removing peer: %s:%d" % (hostname, port))
         self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
 
     def _HasPeer(self, hostname, port):

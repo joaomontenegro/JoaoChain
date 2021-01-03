@@ -17,6 +17,8 @@ class Client(network.Client):
             self.failedAttempts = 0
         return success
 
+    ### Message Methods ###
+
     def Version(self):
         if not self.Send('Version', utils.IntToBytes(VERSION)):
             return None
@@ -28,14 +30,7 @@ class Client(network.Client):
     def GetAddrs(self):
         addrs = []
 
-        # Get the server address
-        if self.controller.server:
-            serverPort = self.controller.server.port
-            outMsg = ("%s:%d" % (network.GetHostname(), serverPort)).encode()
-        else:
-            outMsg = b''
-
-        if not self.Send('GetAddrs', outMsg):
+        if not self.Send('GetAddrs', self.__GetServerAddrMsg()):
             return addrs        
         
         msgType, msg = self.Receive()
@@ -49,5 +44,16 @@ class Client(network.Client):
         return addrs
 
     def Close(self):
-        self.Send('Close')
+        self.Send('Close', self.__GetServerAddrMsg())
         super().Close()
+
+    #######################
+
+    def __GetServerAddrMsg(self):
+        if self.controller.server:
+            serverPort = self.controller.server.port
+            return ("%s:%d" % (network.GetHostname(), serverPort)).encode()
+        return b''
+        
+
+
