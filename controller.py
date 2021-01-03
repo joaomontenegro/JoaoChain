@@ -1,6 +1,8 @@
-import blockchain
-import network
 import utils
+import network
+import blockchain
+import server
+import client
 
 import threading
 import time
@@ -17,13 +19,11 @@ def Log(msg):
     if doLog:
         print(msg)
 
-
 class Controller:
-    
     def __init__(self):
         self.isRunning    = False
         self.blockchain   = blockchain.Blockchain()
-        self.clients      = []
+        self.peers      = []
         self.server       = None
         self.serverThread = None
 
@@ -37,7 +37,7 @@ class Controller:
 
         if startServer:
             Log("Starting server")
-            self.server = PeerServer(serverPort, self)
+            self.server = server.Server(serverPort, self)
             self.serverThread = threading.Thread(name='Server', target=self.server.Start)
             self.serverThread.start()
 
@@ -64,32 +64,32 @@ class Controller:
     def GetPeerAddrs(self):
         # todo protect from threadding?
         addrs = []
-        for client in self.clients:
-            if client:
-                addrs.append((client.hostname, client.port))
+        for peer in self.peers:
+            if peer:
+                addrs.append((peer.hostname, peer.port))
         return addrs
 
     def AddPeer(self, hostname, port):
         #todo protect threading
-        if not self._HasClient(hostname, port) and not self._IsMe(hostname, port):
-            client = PeerClient(hostname, port, self)
-            if client.Connect():
+        if not self._HasPeer(hostname, port) and not self._IsMe(hostname, port):
+            peer = client.Client(hostname, port, self)
+            if peer.Connect():
                 # Validate version
-                peerVersion = client.Version()
+                peerVersion = peer.Version()
                 if peerVersion and self.ValidateVersion(peerVersion):
-                    self.clients.append(client)
+                    self.peers.append(peer)
                     return True
                 else:
-                    client.Close()
+                    peer.Close()
                     Log("Invalid peer version:%d" % peerVersion)
         return False
 
     def RemovePeer(self, hostname, port):
-        self.clients = [c for c in self.clients if not (c.hostname == hostname and c.port == port)]
+        self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
 
-    def _HasClient(self, hostname, port):
-        for client in self.clients:
-            if client.hostname == hostname and client.port == port:
+    def _HasPeer(self, hostname, port):
+        for peer in self.peers:
+            if peer.hostname == hostname and peer.port == port:
                 return True
         return False
 
@@ -105,123 +105,34 @@ class Controller:
             self.AddPeer(hostname, port)
 
     def _SanitizePeers(self):
-        newClients = []
+        newPeers = []
         
-        for client in self.clients:
-            if not client.IsConnected():
-                if not client.Connect() and client.failedAttempts > 3:
-                    Log("Dropping peer: %s" % client)
+        for peer in self.peers:
+            if not peer.IsConnected():
+                if not peer.Connect() and peer.failedAttempts > 3:
+                    Log("Dropping peer: %s" % peer)
                     continue
-            newClients.append(client)
+            newPeers.append(peer)
 
-        self.clients = newClients
+        self.peers = newPeers
 
     def _UpdatePeers(self):
         self._SanitizePeers()
         
-        if not self.clients:
+        if not self.peers:
             Log("No peers: adding initial peers.")
             self._AddInitialPeers()
 
-        if len(self.clients) >= NUM_PEERS:
+        if len(self.peers) >= NUM_PEERS:
             return
 
-        for client in self.clients:
-            addrs = client.GetAddrs()
+        for peer in self.peers:
+            addrs = peer.GetAddrs()
             for addr in addrs:
                 hostname, port = addr
                 self.AddPeer(hostname, port)
-                if len(self.clients) >= NUM_PEERS:
+                if len(self.peers) >= NUM_PEERS:
                     return
-
-
-class PeerClient(network.Client):
-    def __init__(self, hostname, port, controller):
-        super().__init__(hostname, port)
-        self.failedAttempts = 0
-        self.controller = controller
-
-    def Connect(self):
-        success = super().Connect()
-        if not success:
-            self.failedAttempts += 1
-        else:
-            self.failedAttempts = 0
-        return success
-
-    def Version(self):
-        if not self.Send('Version', utils.IntToBytes(VERSION)):
-            return None
-        msgType, msg = self.Receive()
-        if  msgType == 'VersionOK':
-            return utils.BytesToInt(msg)
-        return None
-
-    def GetAddrs(self):
-        addrs = []
-
-        # Get the server address
-        if self.controller.server:
-            serverPort = self.controller.server.port
-            outMsg = ("%s:%d" % (network.GetHostname(), serverPort)).encode()
-        else:
-            outMsg = b''
-
-        if not self.Send('GetAddrs', outMsg):
-            return addrs        
-        
-        msgType, msg = self.Receive()
-        if  msgType == 'Addrs' and msg:
-            addrsStr = msg.decode().split(';')
-            for addrStr in addrsStr:
-                (hostname, port) = tuple(addrStr.split(':'))
-                port = int(port)
-                addrs.append((hostname, port))
-
-        return addrs
-
-    def Close(self):
-        self.Send('Close')
-        super().Close()
-
-
-class PeerServer(network.Server):
-    def __init__(self, port, controller):
-        super().__init__(port)
-        self.controller = controller
-
-    def ProcessMessage(self, msgType, msg, clientSock):
-        if msgType == 'Version':
-            peerVersion = utils.BytesToInt(msg)
-            if self.controller.ValidateVersion(peerVersion):
-                clientSock.Send('VersionOK', utils.IntToBytes(VERSION))
-            else:
-                clientSock.Send('VersionNO')
-
-        elif msgType == 'GetAddrs':
-            addrsBytes = self._GetAddrsBytes(clientSock)
-            clientSock.Send('Addrs', addrsBytes) 
-            if msg:
-                (hostname, port) = msg.decode().split(':')
-                port = int(port)
-                self.controller.AddPeer(hostname, port)
-
-        if msgType == 'Close':
-            clientSock.Close()
-
-        elif msgType == 'Stop':
-            clientSock.Send('Bye!')
-            clientSock.Close()
-            self.Stop()
-
-    def _GetAddrsBytes(self, clientSock):
-        addrs = self.controller.GetPeerAddrs()
-        addrsBytes = b''
-        for addr in addrs:
-            if (addrsBytes) : addrsBytes += b';'
-            addrsBytes += ('%s:%d' % addr).encode()
-        return addrsBytes
-
 
 if __name__ == '__main__':
     import sys
