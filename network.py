@@ -55,14 +55,14 @@ class Socket():
         while totalSent < msgLen:
             sent = self.sock.send(b[totalSent:])
             if sent == 0:
-                raise RuntimeError("socket connection broken")
+                raise ConnectionError("socket connection broken")
             totalSent += sent
 
     def Receive(self):
         # Type and Size 
         chunk = self.sock.recv(12 + 4)
         if chunk == b'':
-                raise RuntimeError("socket connection broken")
+            raise ConnectionError("socket connection broken")
         msgType = chunk[:12].decode().rstrip()
         payloadLen = utils.BytesToInt(chunk[12:16])
 
@@ -71,7 +71,7 @@ class Socket():
         while bytesReceived < payloadLen:
             chunk = self.sock.recv(min(payloadLen - bytesReceived, 2048))
             if chunk == b'':
-                raise RuntimeError("socket connection broken")
+                raise ConnectionError("socket connection broken")
             chunks.append(chunk)
             bytesReceived = bytesReceived + len(chunk)
         
@@ -112,6 +112,27 @@ class Client:
             print ("Connection refused: %s:%d" % (self.hostname, self.port))
             return False
 
+    def Send(self, msgType, payload=b''):
+        if not self.IsConnected():
+            return False
+        
+        try:
+            self.sock.Send(msgType, payload)
+            return True
+        except ConnectionError:
+            self.sock = None
+            return False
+
+    def Receive(self):
+        if not self.IsConnected():
+            return None, None
+
+        try:
+            return self.sock.Receive()
+        except ConnectionError:
+            self.sock = None
+            return None, None
+
     def Close(self):
         self.sock.Close()
         self.sock = None
@@ -129,6 +150,14 @@ class Server:
     def __del__(self):
         self.Close()
 
+    class ClientListenerThread(threading.Thread):
+        def __init__(self, clientSock, clientAddress, target, args):
+            super().__init__(name='Client_%s:%d' % clientAddress,
+                             target=target,
+                             args=args)
+            self.clientSock = clientSock
+            self.clientAddress = clientAddress
+
     def IsBound(self):
         return self.sock != None
 
@@ -145,9 +174,9 @@ class Server:
         while self.active:
             try:
                 (clientSock, clientAddress) = self.sock.Accept()
-                t = threading.Thread(name='Client_%s:%d' % clientAddress,
-                                     target=self._HandleClient,
-                                     args=(clientSock, clientAddress))
+                t = self.ClientListenerThread(clientSock, clientAddress,
+                                              target=self._HandleClient,
+                                              args=(clientSock, clientAddress))
                 threads.append(t)
                 t.start()
             except BlockingIOError:
@@ -159,7 +188,10 @@ class Server:
 
         # Wait for all live threads to end
         for t in threads:
-            t.join()
+            if t.is_alive():
+                if t.clientSock.IsConnected():
+                    t.clientSock.Close()
+                t.join()
 
         # Close the listening socket
         self.Close()
@@ -179,22 +211,28 @@ class Server:
         print("Accepted connection:", clientAddress)
 
         while clientSock.IsConnected():
-            msgType, msg = clientSock.Receive()
-            print ("  Received:", msgType)
-            self.ProcessMessage(msgType, msg, clientSock)
+            try:
+                msgType, msg = clientSock.Receive()
+                print ("  Received:", msgType)
+            
+                self.ProcessMessage(msgType, msg, clientSock)
+            except ConnectionError:
+                print("Disconnected", clientAddress)
 
 class TestClient(Client):
     def Ping(self):
-        self.sock.Send('Ping')
-        msgType, _msg = self.sock.Receive()
+        if not self.Send('Ping'):
+            return False
+        msgType, _msg = self.Receive()
         return  msgType == 'Pong'
 
     def Done(self):
-        self.sock.Send('Done')
+        return self.Send('Done')
 
     def Stop(self):
-        self.sock.Send('Stop')
-        msgType, _msg = self.sock.Receive()
+        if not self.Send('Stop'):
+            return False
+        msgType, _msg = self.Receive()
         return msgType == 'Bye!'
 
 
