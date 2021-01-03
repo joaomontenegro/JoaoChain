@@ -207,9 +207,6 @@ class Server:
             self.sock.Close()
             self.sock = None
 
-    def ProcessMessage(self, msgType, msg, clientSock):
-        raise NotImplementedError
-
     def _HandleClient(self, clientSock, clientAddress):
         print("Accepted connection:", clientAddress)
 
@@ -217,8 +214,14 @@ class Server:
             try:
                 msgType, msg = clientSock.Receive()
                 print ("  Received:", msgType)
-            
-                self.ProcessMessage(msgType, msg, clientSock)
+
+                # Call the methor with the name of the message type prefixed with _.
+                methodName = '_%s' % msgType
+                if msgType and hasattr(self, methodName):
+                    method = getattr(self, methodName)
+                    method(clientSock, clientAddress, msgType, msg)
+                else:
+                    raise RuntimeError("Server method for message type not found: %s" % msgType)
             except ConnectionError:
                 print("Disconnected", clientAddress)
                 return
@@ -241,17 +244,16 @@ class TestClient(Client):
 
 
 class TestServer(Server):
-    def ProcessMessage(self, msgType, msg, clientSock):
-        if msgType == 'Done':
-            clientSock.Close()
-        
-        elif msgType == 'Ping':
-            clientSock.Send('Pong')
+    def _Done(self, clientSock, clientAddress, msgType, msg):
+        clientSock.Close()
+    
+    def _Ping(self, clientSock, clientAddress, msgType, msg):
+        clientSock.Send('Pong')
 
-        if msgType == 'Stop':
-            clientSock.Send('Bye!')
-            clientSock.Close()
-            self.Stop()
+    def _Stop(self, clientSock, clientAddress, msgType, msg):
+        clientSock.Send('Bye!')
+        clientSock.Close()
+        self.Stop()
 
 
 if __name__ == '__main__':
