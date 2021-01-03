@@ -218,6 +218,7 @@ class Server:
                 self.ProcessMessage(msgType, msg, clientSock)
             except ConnectionError:
                 print("Disconnected", clientAddress)
+                return
 
 class TestClient(Client):
     def Ping(self):
