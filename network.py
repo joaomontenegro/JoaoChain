@@ -103,7 +103,6 @@ class Client:
 
         try:
             self.sock = Socket()
-            print ("Connecting to %s:%d" % (self.hostname, self.port))
             self.sock.Connect(self.hostname, self.port)
             print ("Connected to %s:%d" % (self.hostname, self.port))
             return True
