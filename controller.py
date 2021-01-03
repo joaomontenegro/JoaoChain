@@ -3,6 +3,7 @@ import network
 import blockchain
 import server
 import client
+import rpc
 
 import threading
 import time
@@ -10,6 +11,7 @@ import time
 VERSION = 1
 INITIAL_ADDRS = [("PORTO", 5001)]
 DEFAULT_SERVER_PORT = 5001
+DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 1.0
 NUM_PEERS = 5
@@ -26,8 +28,14 @@ class Controller:
         self.peers      = []
         self.server       = None
         self.serverThread = None
+        self.rpc       = None
+        self.rpcThread = None
 
-    def Start(self, startServer=True, serverPort=DEFAULT_SERVER_PORT):
+    def GetVersion(self):
+        return VERSION        
+
+    def Start(self, startServer=True, serverPort=DEFAULT_SERVER_PORT,
+              startRPC=False, rpcPort=DEFAULT_RPC_PORT):
         if self.isRunning:
             return
         
@@ -40,6 +48,12 @@ class Controller:
             self.server = server.Server(serverPort, self)
             self.serverThread = threading.Thread(name='Server', target=self.server.Start)
             self.serverThread.start()
+
+        if startRPC:
+            Log("Starting RPC server")
+            self.rpc = rpc.RPCServer(rpcPort, self)
+            self.rpcThread = threading.Thread(name='RPCServer', target=self.rpc.Start)
+            self.rpcThread.start()
 
         try:
             # Main Loop
@@ -56,6 +70,11 @@ class Controller:
             if startServer:
                 self.server.Stop()
                 self.serverThread.join()
+
+            if startRPC:
+                self.rpc.Stop()
+                self.rpcThread.join()
+
             raise
 
     def ValidateVersion(self, version):
@@ -141,7 +160,7 @@ if __name__ == '__main__':
     c = Controller()
 
     if len(sys.argv) > 1 and sys.argv[1] == "server":
-        c.Start(True, 5001)
+        c.Start(True, 5001, True, 4001)
         
     else:    
         #port = int(sys.argv[1])

@@ -21,6 +21,15 @@ class Transaction:
         b += utils.IntToBytes(self.amount)
         return hashlib.sha256(b).hexdigest()
 
+    def encode(self):
+        # TODO
+        pass
+
+    def decode(self, txBytes):
+        # TODO
+        pass
+
+
     def __repr__(self):
         HASH_STR_LEN = 8
 

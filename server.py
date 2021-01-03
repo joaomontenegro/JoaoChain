@@ -1,8 +1,6 @@
 import utils
 import network
 
-VERSION = 1
-
 class Server(network.Server):
     def __init__(self, port, controller):
         super().__init__(port)
@@ -13,7 +11,8 @@ class Server(network.Server):
     def _Version(self, clientSock, clientAddress, msgType, msg):
         peerVersion = utils.BytesToInt(msg)
         if self.controller.ValidateVersion(peerVersion):
-            clientSock.Send('VersionOK', utils.IntToBytes(VERSION))
+            version = self.controller.GetVersion()
+            clientSock.Send('VersionOK', utils.IntToBytes(version))
         else:
             clientSock.Send('VersionNO')
 

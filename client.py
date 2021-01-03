@@ -1,8 +1,6 @@
 import utils
 import network
 
-VERSION = 1
-
 class Client(network.Client):
     def __init__(self, hostname, port, controller):
         super().__init__(hostname, port)
@@ -20,7 +18,8 @@ class Client(network.Client):
     ### Message Methods ###
 
     def Version(self):
-        if not self.Send('Version', utils.IntToBytes(VERSION)):
+        version = self.controller.GetVersion()
+        if not self.Send('Version', utils.IntToBytes(version)):
             return None
         msgType, msg = self.Receive()
         if  msgType == 'VersionOK':
