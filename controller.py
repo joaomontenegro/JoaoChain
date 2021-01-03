@@ -8,7 +8,8 @@ import time
 VERSION = 1
 INITIAL_ADDRS = [("PORTO", 5001)]
 DEFAULT_SERVER_PORT = 5002
-MAIN_LOOP_SLEEP = 0.1
+MAIN_LOOP_TIME = 0.1
+UPDATE_PEERS_TIME = 5.0
 NUM_PEERS = 5
 
 doLog = True
@@ -31,6 +32,8 @@ class Controller:
             return
         
         self.isRunning = True
+        timerMainLoop = utils.Timer(MAIN_LOOP_TIME)
+        timerUpdatePeers = utils.Timer(UPDATE_PEERS_TIME)
 
         if startServer:
             Log("Starting server")
@@ -41,9 +44,15 @@ class Controller:
         try:
             # Main Loop
             while True:
-                if startClients:
-                    self._MainLoopStep()
-                time.sleep(MAIN_LOOP_SLEEP)
+                if startClients and timerUpdatePeers.IsDone():
+                    self._UpdatePeers()
+                    timerUpdatePeers.Reset()
+                
+                # Sleep until main loop time has passed
+                timerMainLoop.SleepUntilDone()
+                timerMainLoop.Reset()
+                
+                
         except:
            self.server.Stop()
            self.serverThread.join()
@@ -60,18 +69,6 @@ class Controller:
                 addrs.append((client.hostname, client.port))
         return addrs
 
-    def _MainLoopStep(self):
-        Log("Step...")
-        
-        if not self.isRunning:
-            return
-
-        # TODO less frequent?
-        self._UpdatePeers()
-
-        #todo: ask for blocks / send new blocks?
-
-        return True
 
     def _HasClient(self, hostname, port):
         for client in self.clients:
@@ -113,6 +110,7 @@ class Controller:
         self.clients = newClients
 
     def _UpdatePeers(self):
+        Log("Updating peers")
         self._SanitizePeers()
         
         if not self.clients:
