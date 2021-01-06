@@ -15,6 +15,7 @@ def Log(msg):
 
 class Blockchain:
     def __init__(self):
+        self.mempool    = {}
         self.blocks     = {}
         self.difficulty = 1
         self.reward     = 10
@@ -107,12 +108,25 @@ class Blockchain:
         # Todo properly sign:
         block.Sign(miner, block.GetHash())
 
+    def AddTransaction(self, tx):
+        if tx.ValidateSignature():
+            Log("Adding tx: %s" % tx)
+            self.mempool[tx.GetHash()] = tx
+            return True
+        else:
+            Log("Tried to add invalid tx: %s" % tx)
+            return False
+
     def _ValidateMiner(self, block):
         return block.miner is not None and block.ValidateSignature()
 
     def _ValidatePow(self, block):
         hash = block.GetHash()
-        return hash is not None and hash.startswith('0' * self.difficulty)
+        if hash is None:
+            return False
+        
+        prefix = b'0' * self.difficulty        
+        return hash[:self.difficulty] == prefix
 
     def _ValidateParent(self, block):
         if block.parent is None:
@@ -163,10 +177,15 @@ if __name__ == '__main__':
     bc = Blockchain()
     bc.SetDifficulty(2)
     
-    miner = hashlib.sha256(b'miner123').hexdigest()
-    print("Miner: %s\n" % miner)
+    miner = hashlib.sha256(b'miner123').digest()
+    print("Miner: %s\n" % miner.hex())
 
-    addrs = ["0000", "1111", "2222", "3333", "4444", "5555"]
+    addrs = [hashlib.sha256(b"0000").digest(),
+             hashlib.sha256(b"1111").digest(),
+             hashlib.sha256(b"2222").digest(),
+             hashlib.sha256(b"3333").digest(),
+             hashlib.sha256(b"4444").digest(),
+             hashlib.sha256(b"5555").digest()]
 
     t0 = transaction.Transaction(miner, addrs[1], 10)
     t0.Sign(t0.GetHash())
@@ -208,13 +227,21 @@ if __name__ == '__main__':
     i = 0
     for b in chain:
         print("%d: %s" % (i, b))
-        pprint(bc.balances.get(b.GetHash(), {}))
+        for (hash, amount) in bc.balances.get(b.GetHash(), {}).items():
+            print("  %s: %d" % (hash.hex()[0:8], amount))
 
         i += 1
     print()
 
-    # Expectd Result: m:30, 0:0, 1:1, 2:5, 3:0, 4:1, 5:3
+    # Expectd Results: 
+    #      Miner: 30
+    #      9af15b33: 0
+    #      0ffe1abd: 1
+    #      edee29f8: 5
+    #      318aee3f: 0
+    #      79f06f8f: 1
+    #      c1f330d0: 3
     print("Balances:")
     print ("   Miner: %d" % bc.GetBalance(miner))
     for addr in addrs:
-        print("   %s: %d" % (addr,  bc.GetBalance(addr)))
+        print("   %s: %d" % (addr.hex()[0:8],  bc.GetBalance(addr)))

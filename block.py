@@ -21,15 +21,15 @@ class Block:
 
     def GetHash(self):
         if self.parent is None:
-            p = ''
+            parent = b''
         else:
-            p = self.parent
+            parent = self.parent
            
-        b = p.encode()
+        b = parent
         b += utils.IntToBytes(len(self.transactions))
         b += utils.IntToBytes(self.timestamp, 8)
         b += utils.IntToBytes(self.nonce)
-        return hashlib.sha256(b).hexdigest()
+        return hashlib.sha256(b).digest()
 
     def __repr__(self):
         HASH_STR_LEN = 8
@@ -37,12 +37,12 @@ class Block:
         if self.parent is None:
             p = 'ROOT'
         else:
-            p = self.parent[:HASH_STR_LEN]
+            p = self.parent.hex()[:HASH_STR_LEN]
 
         return 'Block{%s, p:%s, m:%s, t:%d, tx:%d, n:%d}' % (
-            self.GetHash()[:HASH_STR_LEN],
+            self.GetHash().hex()[:HASH_STR_LEN],
             p,
-            self.miner[:HASH_STR_LEN],
+            self.miner.hex()[:HASH_STR_LEN],
             self.timestamp,
             len(self.transactions),
             self.nonce)

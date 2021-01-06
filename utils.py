@@ -6,7 +6,6 @@ def IntToBytes(i, size=4):
 def BytesToInt(b):
     return int.from_bytes(b, "big")
 
-
 def GetCurrentTime():
     return int(round(time.time()))
 

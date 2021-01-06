@@ -109,7 +109,10 @@ class Client:
             self.sock.Connect(self.hostname, self.port)
             print ("Connected to %s:%d" % (self.hostname, self.port))
             return True
-        except (ConnectionRefusedError, TimeoutError, socket.timeout):
+        except (ConnectionRefusedError,
+                TimeoutError,
+                socket.timeout,
+                socket.gaierror):
             self.sock = None
             print ("Connection refused: %s:%d" % (self.hostname, self.port))
             return False
