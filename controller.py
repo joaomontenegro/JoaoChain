@@ -7,6 +7,7 @@ import rpc
 
 import threading
 import time
+import random
 
 VERSION = 1
 INITIAL_ADDRS = [("PORTO", 5001)]
@@ -14,6 +15,7 @@ DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 1.0
+UPDATE_MEMPOOL_TIME = 1.0
 NUM_PEERS = 5
 
 doLog = True
@@ -25,11 +27,11 @@ class Controller:
     def __init__(self):
         self.isRunning    = False
         self.blockchain   = blockchain.Blockchain()
-        self.peers      = []
+        self.peers        = []
         self.server       = None
         self.serverThread = None
-        self.rpc       = None
-        self.rpcThread = None
+        self.rpc          = None
+        self.rpcThread    = None
 
     def GetVersion(self):
         return VERSION        
@@ -42,6 +44,7 @@ class Controller:
         self.isRunning = True
         timerMainLoop = utils.Timer(MAIN_LOOP_TIME)
         timerUpdatePeers = utils.Timer(UPDATE_PEERS_TIME)
+        timerUpdateMempool = utils.Timer(UPDATE_MEMPOOL_TIME)
 
         if startServer:
             Log("Starting server")
@@ -62,6 +65,11 @@ class Controller:
                     self._UpdatePeers()
                     timerUpdatePeers.Reset()
                     Log("My Peers: " + str(self.GetPeerAddrs()))
+
+                if timerUpdateMempool.IsDone():
+                    self._UpdateMempool()
+                    timerUpdateMempool.Reset()
+                    Log("My Mempool: " + str(len(self.blockchain.mempool)))
                 
                 # Sleep until main loop time has passed
                 timerMainLoop.SleepUntilDone()
@@ -107,6 +115,13 @@ class Controller:
         print("Removing peer: %s:%d" % (hostname, port))
         self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
 
+    def _GetRandomPeer(self):
+        if not self.peers:
+            return None
+        
+        i = random.randrange(len(self.peers))
+        return self.peers[i]
+
     def _HasPeer(self, hostname, port):
         for peer in self.peers:
             if peer.hostname == hostname and peer.port == port:
@@ -117,7 +132,6 @@ class Controller:
         return (self.server and
                     hostname in (network.GetHostname(), 'localhost', '127.0.0.1') and
                     port == self.server.port)
-            
 
     def _AddInitialPeers(self):
         for addr in INITIAL_ADDRS:
@@ -153,6 +167,16 @@ class Controller:
                 self.AddPeer(hostname, port)
                 if len(self.peers) >= NUM_PEERS:
                     return
+
+    def _UpdateMempool(self):
+        peer = self._GetRandomPeer()
+        if not peer or not peer.IsConnected():
+            return
+
+        mempool = peer.GetMempool()
+        for tx in mempool:
+            self.blockchain.AddTransaction(tx)
+
 
 if __name__ == '__main__':
     import sys

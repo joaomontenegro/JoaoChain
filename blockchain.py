@@ -151,8 +151,9 @@ class Blockchain:
 
     def AddTransaction(self, tx):
         if tx.ValidateSignature():
-            Log("Adding tx: %s" % tx)
-            self.mempool[tx.GetHash()] = tx
+            if tx.GetHash() not in self.mempool:
+                Log("Adding tx: %s" % tx)
+                self.mempool[tx.GetHash()] = tx
             return True
         else:
             Log("Tried to add invalid tx: %s" % tx)

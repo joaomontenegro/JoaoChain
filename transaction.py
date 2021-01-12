@@ -1,6 +1,5 @@
 import hashlib
 import utils
-    
 
 class Transaction:
     def __init__(self, fromAddr, toAddr, amount):
@@ -33,6 +32,8 @@ class Transaction:
             self.amount,
             self.signature.hex()[:HASH_STR_LEN])
 
+MSG_LEN = 100 # 32 + 32 + 4 + 32
+
 def EncodeTx(tx):
     if tx.signature is None:
         return None
@@ -44,14 +45,14 @@ def EncodeTx(tx):
 
 def DecodeTx(txBytes):
     l = len(txBytes)
-    if l != 32 + 32 + 4 + 32:
+    if l < MSG_LEN:
         print("Invalid Tx size: ", len())
         return None
     
     fromAddr = txBytes[:32]
     toAddr = txBytes[32:64]
     amount = utils.BytesToInt(txBytes[64:68])
-    signature = txBytes[68:]
+    signature = txBytes[68:100]
     
     tx = Transaction(fromAddr, toAddr, amount)
     tx.Sign(signature)    

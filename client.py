@@ -1,3 +1,5 @@
+import transaction
+
 import utils
 import network
 
@@ -30,10 +32,10 @@ class Client(network.Client):
         addrs = []
 
         if not self.Send('GetAddrs', self.__GetServerAddrMsg()):
-            return addrs        
+            return addrs
         
         msgType, msg = self.Receive()
-        if  msgType == 'Addrs' and msg:
+        if msgType == 'Addrs' and msg:
             addrsStr = msg.decode().split(';')
             for addrStr in addrsStr:
                 (hostname, port) = tuple(addrStr.split(':'))
@@ -41,6 +43,25 @@ class Client(network.Client):
                 addrs.append((hostname, port))
 
         return addrs
+
+    def GetMempool(self):
+        mempool = []
+        
+        if not self.Send('GetMempool'):
+            return mempool
+
+        msgType, msg = self.Receive()
+        if msgType == 'Mempool' and msg:
+            pos = 4
+            numTx = utils.BytesToInt(msg[:pos])
+            for _i in range(numTx):
+                nextPos = pos + transaction.MSG_LEN
+                tx = transaction.DecodeTx(msg[pos:nextPos])
+                mempool.append(tx)
+                pos = nextPos
+
+        return mempool
+        
 
     def Close(self):
         self.Send('Close', self.__GetServerAddrMsg())
@@ -53,6 +74,3 @@ class Client(network.Client):
             serverPort = self.controller.server.port
             return ("%s:%d" % (network.GetHostname(), serverPort)).encode()
         return b''
-        
-
-
