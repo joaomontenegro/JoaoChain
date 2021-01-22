@@ -15,10 +15,10 @@ def Log(msg):
 
 
 class Blockchain:
-    def __init__(self):
+    def __init__(self, difficulty=1):
         self.mempool    = OrderedDict()
         self.blocks     = {}
-        self.difficulty = 1
+        self.difficulty = difficulty
         self.reward     = 10
         self.balances   = {}
         self.highest    = None
@@ -122,6 +122,7 @@ class Blockchain:
                 print("Rejected %s" % tx)
                 # Reject tx and add to the end of the pool
                 rejected.append(tx)
+                continue
             
             # Calculate the balance of the to addr, plus the tx amout
             toBal = tmpBalances.get(tx.toAddr,
@@ -145,7 +146,7 @@ class Blockchain:
             b.nonce += 1
         
         # Todo properly sign:
-        b.Sign(miner, b.GetHash())
+        b.Sign(b.GetHash())
 
         return b
 
@@ -166,9 +167,9 @@ class Blockchain:
         hash = b.GetHash()
         if hash is None:
             return False
-        
-        prefix = b'0' * self.difficulty        
-        return hash[:self.difficulty] == prefix
+
+        prefix = '0' * self.difficulty   
+        return hash.hex().startswith(prefix)
 
     def _ValidateParent(self, b):
         if b.parent is None:

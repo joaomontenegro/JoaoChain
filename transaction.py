@@ -32,16 +32,21 @@ class Transaction:
             self.amount,
             self.signature.hex()[:HASH_STR_LEN])
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.GetHash() == other.GetHash()
+
 MSG_LEN = 100 # 32 + 32 + 4 + 32
 
 def EncodeTx(tx):
     if tx.signature is None:
         return None
-    b = tx.fromAddr
-    b += tx.toAddr
-    b += utils.IntToBytes(tx.amount)
-    b += tx.signature
-    return b
+    out = tx.fromAddr
+    out += tx.toAddr
+    out += utils.IntToBytes(tx.amount)
+    out += tx.signature
+    return out
 
 def DecodeTx(txBytes):
     l = len(txBytes)

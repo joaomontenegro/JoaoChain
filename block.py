@@ -1,18 +1,19 @@
+import transaction
+
 import hashlib
 import utils
 
 class Block:
-    def __init__(self, parent, transactions, timestamp, miner=None):
+    def __init__(self, parent, transactions, timestamp, miner, nonce=0):
         self.parent       = parent
-        self.transactions = transactions
         self.timestamp    = timestamp
-        self.nonce        = 0
-        self.miner        = None
+        self.nonce        = nonce
+        self.miner        = miner
         self.signature    = None
         #self.gas         = 0
+        self.transactions = transactions
 
-    def Sign(self, miner, signature):
-        self.miner = miner
+    def Sign(self, signature):
         self.signature = signature
 
     def ValidateSignature(self):
@@ -24,7 +25,7 @@ class Block:
             parent = b''
         else:
             parent = self.parent
-           
+
         b = parent
         b += utils.IntToBytes(len(self.transactions))
         b += utils.IntToBytes(self.timestamp, 8)
@@ -47,3 +48,48 @@ class Block:
             len(self.transactions),
             self.nonce)
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.GetHash() == other.GetHash()
+
+#todo: add test
+def EncodeBlock(bl):
+    if bl.signature is None:
+        return None
+    out = bl.parent
+    out += utils.IntToBytes(bl.nonce)
+    out += utils.IntToBytes(bl.timestamp)
+    out += bl.miner
+    out += bl.signature
+    out += utils.IntToBytes(len(bl.transactions))
+    for tx in bl.transactions:
+        out += transaction.EncodeTx(tx)
+
+    return out
+    
+#todo: add test
+def DecodeBlock(blBytes):
+    parent = blBytes[:32]
+    nonce = utils.BytesToInt(blBytes[32:36])
+    timestamp = utils.BytesToInt(blBytes[36:40])
+    miner = blBytes[40:72]
+    signature = blBytes[72:104]
+    numTx = utils.BytesToInt(blBytes[104:108])
+
+    start = 108
+    transactions = []
+    for _ in range(numTx):
+        end = start + transaction.MSG_LEN
+        tx = transaction.DecodeTx(blBytes[start:end])
+        if tx:
+            transactions.append(tx)
+        start = end
+    
+    bl = Block(parent, transactions, timestamp, miner, nonce)
+    bl.Sign(signature)
+
+    if not bl.ValidateSignature():
+        return None
+
+    return bl

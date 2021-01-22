@@ -5,6 +5,7 @@ import server
 import client
 import rpc
 
+import hashlib
 import threading
 import time
 import random
@@ -17,6 +18,7 @@ MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 1.0
 UPDATE_MEMPOOL_TIME = 1.0
 NUM_PEERS = 5
+DIFFICULTY = 5
 
 doLog = True
 def Log(msg):
@@ -24,14 +26,17 @@ def Log(msg):
         print(msg)
 
 class Controller:
-    def __init__(self):
+    def __init__(self, minerAddr=None):
         self.isRunning    = False
-        self.blockchain   = blockchain.Blockchain()
+        self.blockchain   = blockchain.Blockchain(DIFFICULTY)
         self.peers        = []
         self.server       = None
         self.serverThread = None
         self.rpc          = None
         self.rpcThread    = None
+        self.minerAddr    = minerAddr
+        self.minedBlock   = None
+        self.minerThread  = None
 
     def GetVersion(self):
         return VERSION        
@@ -40,6 +45,9 @@ class Controller:
               startRPC=False, rpcPort=DEFAULT_RPC_PORT):
         if self.isRunning:
             return
+
+        if self.minerAddr:
+            Log("Miner Address: %s" % self.minerAddr.hex())
         
         self.isRunning = True
         timerMainLoop = utils.Timer(MAIN_LOOP_TIME)
@@ -70,18 +78,28 @@ class Controller:
                     self._UpdateMempool()
                     timerUpdateMempool.Reset()
                     Log("My Mempool: " + str(len(self.blockchain.mempool)))
+
+                # If we are a miner
+                if self.minerAddr is not None:
+                    if self.minerThread is None:
+                        self.minerThread = threading.Thread(name='Miner', target=self._Mine)
+                        self.minerThread.start()
+                    elif self.minedBlock:
+                        # todo: block was mined! add to blockchain and broadcast it
+                        Log("Broadcast Block:\n%s\n" % str(self.minedBlock))
+                        self.minerThread.join()
+                        self.minerThread = None
+                        self.minedBlock = None
                 
                 # Sleep until main loop time has passed
                 timerMainLoop.SleepUntilDone()
                 timerMainLoop.Reset()
         except:
-            if startServer:
+            if self.serverThread and self.serverThread.is_alive():
                 self.server.Stop()
-                self.serverThread.join()
 
-            if startRPC:
+            if self.rpcThread and self.rpcThread.is_alive():
                 self.rpc.Stop()
-                self.rpcThread.join()
 
             raise
 
@@ -112,7 +130,7 @@ class Controller:
         return False
 
     def RemovePeer(self, hostname, port):
-        print("Removing peer: %s:%d" % (hostname, port))
+        Log("Removing peer: %s:%d" % (hostname, port))
         self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
 
     def _GetRandomPeer(self):
@@ -177,15 +195,24 @@ class Controller:
         for tx in mempool:
             self.blockchain.AddTransaction(tx)
 
+    def _Mine(self):
+        if self.minedBlock is not None:
+            return
+
+        parent = self.blockchain.GetHighestBlock()
+        self.minedBlock = self.blockchain.Mine(self.minerAddr, parent)
+
 
 if __name__ == '__main__':
     import sys
 
-    c = Controller()
-
     if len(sys.argv) > 1 and sys.argv[1] == "server":
+        c = Controller()
         c.Start(True, 5001, True, 4001)
-        
+    elif len(sys.argv) > 1 and sys.argv[1] == "miner":
+        minerAddr = hashlib.sha256(b'miner123').digest()
+        c = Controller(minerAddr=minerAddr)
+        c.Start(True, 5001, True, 4001)
     else:    
         #port = int(sys.argv[1])
         c.Start(True, 5002)
