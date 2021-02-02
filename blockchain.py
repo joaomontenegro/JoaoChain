@@ -28,6 +28,7 @@ class Blockchain:
         self.difficulty = newDifficulty
 
     def AddBlock(self, b):
+        print (" - Adding Block:", b)
         hash = b.GetHash()
 
         if not self._ValidateMiner(b):
@@ -66,6 +67,9 @@ class Blockchain:
 
     def GetBlock(self, hash):
         return self.blocks.get(hash, None)
+
+    def GetHighestBlockHash(self):
+        return self.highest
 
     def GetHighestBlock(self):
         if self.highest is None:

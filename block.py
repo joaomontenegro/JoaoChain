@@ -57,7 +57,10 @@ class Block:
 def EncodeBlock(bl):
     if bl.signature is None:
         return None
-    out = bl.parent
+    if bl.parent is None:
+        out = utils.IntToBytes(0, 32)
+    else:
+        out = bl.parent
     out += utils.IntToBytes(bl.nonce)
     out += utils.IntToBytes(bl.timestamp)
     out += bl.miner
@@ -71,6 +74,8 @@ def EncodeBlock(bl):
 #todo: add test
 def DecodeBlock(blBytes):
     parent = blBytes[:32]
+    if parent == utils.IntToBytes(0, 32):
+        parent = None
     nonce = utils.BytesToInt(blBytes[32:36])
     timestamp = utils.BytesToInt(blBytes[36:40])
     miner = blBytes[40:72]

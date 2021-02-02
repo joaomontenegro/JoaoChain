@@ -1,3 +1,4 @@
+import block
 import transaction
 
 import utils
@@ -61,7 +62,16 @@ class Client(network.Client):
                 pos = nextPos
 
         return mempool
-        
+
+    def AddBlock(self, bl):
+        blBytes = block.EncodeBlock(bl)
+        if not blBytes:
+            return False
+
+        if not self.Send('AddBlock', blBytes):
+            return False
+
+        return True
 
     def Close(self):
         self.Send('Close', self.__GetServerAddrMsg())

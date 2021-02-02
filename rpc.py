@@ -52,7 +52,7 @@ if __name__ == '__main__':
         elif msgType.lower() == "tx":
             fromAddr = hashlib.sha256(b'1111').digest()
             toAddr = hashlib.sha256(b'2222').digest()
-            amount = 123
+            amount = 0
             tx = transaction.Transaction(fromAddr, toAddr, amount)
             tx.Sign(tx.GetHash())
             print('Added:', client.AddTx(tx))

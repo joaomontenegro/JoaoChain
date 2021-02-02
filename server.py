@@ -1,3 +1,4 @@
+import block
 import transaction
 
 import utils
@@ -30,6 +31,14 @@ class Server(network.Server):
         #TODO: get random sample
         mempoolBytes = self.__GetMempoolMsg()
         clientSock.Send('Mempool', mempoolBytes)
+
+    def _AddBlock(self, clientSock, clientAddress, msgType, msg):
+        if not msg:
+            return
+        
+        bl = block.DecodeBlock(msg)
+        self.controller.blockchain.AddBlock(bl)
+        
 
     def _Close(self, clientSock, clientAddress, msgType, msg):
         

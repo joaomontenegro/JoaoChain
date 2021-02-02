@@ -82,11 +82,13 @@ class Controller:
                 # If we are a miner
                 if self.minerAddr is not None:
                     if self.minerThread is None:
-                        self.minerThread = threading.Thread(name='Miner', target=self._Mine)
+                        self.minerThread = threading.Thread(name='Miner',
+                                                            target=self._Mine)
                         self.minerThread.start()
                     elif self.minedBlock:
-                        # todo: block was mined! add to blockchain and broadcast it
-                        Log("Broadcast Block:\n%s\n" % str(self.minedBlock))
+                        # Add block and broadcast it
+                        if self.blockchain.AddBlock(self.minedBlock):
+                            self._BroadcastBlock(self.minedBlock)
                         self.minerThread.join()
                         self.minerThread = None
                         self.minedBlock = None
@@ -172,7 +174,7 @@ class Controller:
         self._SanitizePeers()
         
         if not self.peers:
-            Log("No peers: adding initial peers.")
+            #Log("No peers: adding initial peers.")
             self._AddInitialPeers()
 
         if len(self.peers) >= NUM_PEERS:
@@ -199,8 +201,12 @@ class Controller:
         if self.minedBlock is not None:
             return
 
-        parent = self.blockchain.GetHighestBlock()
+        parent = self.blockchain.GetHighestBlockHash()
         self.minedBlock = self.blockchain.Mine(self.minerAddr, parent)
+
+    def _BroadcastBlock(self, bl):
+        for peer in self.peers:
+            peer.AddBlock(bl)
 
 
 if __name__ == '__main__':
@@ -214,6 +220,7 @@ if __name__ == '__main__':
         c = Controller(minerAddr=minerAddr)
         c.Start(True, 5001, True, 4001)
     else:    
+        c = Controller()
         #port = int(sys.argv[1])
         c.Start(True, 5002)
     
