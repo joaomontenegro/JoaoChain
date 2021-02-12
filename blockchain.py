@@ -59,6 +59,8 @@ class Blockchain:
         if blockHeight > self.height:
             self.height = blockHeight
             self.highest = hash
+        
+        self._RemoveFromMemPool(b)
 
         self.blocks[hash] = b
         self.balances[hash] = blockBalances
@@ -164,6 +166,9 @@ class Blockchain:
             Log("Tried to add invalid tx: %s" % tx)
             return False
 
+    def HasMemPool(self):
+        return len(self.mempool) > 0
+
     def _ValidateMiner(self, b):
         return b.miner is not None and b.ValidateSignature()
 
@@ -219,6 +224,11 @@ class Blockchain:
                 return balance
         return 0
 
+    def _RemoveFromMemPool(self, b):
+       for tx in b.transactions:
+           txHash = tx.GetHash()
+           if txHash in self.mempool:
+               self.mempool.pop(txHash)
 
 
 if __name__ == '__main__':

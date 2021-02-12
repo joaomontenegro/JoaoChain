@@ -81,7 +81,7 @@ class Controller:
 
                 # If we are a miner
                 if self.minerAddr is not None:
-                    if self.minerThread is None:
+                    if self.minerThread is None and self.blockchain.HasMemPool():
                         self.minerThread = threading.Thread(name='Miner',
                                                             target=self._Mine)
                         self.minerThread.start()
@@ -218,9 +218,9 @@ if __name__ == '__main__':
     elif len(sys.argv) > 1 and sys.argv[1] == "miner":
         minerAddr = hashlib.sha256(b'miner123').digest()
         c = Controller(minerAddr=minerAddr)
-        c.Start(True, 5001, True, 4001)
+        c.Start(True, 5002, True, 4002)
     else:    
         c = Controller()
         #port = int(sys.argv[1])
-        c.Start(True, 5002)
+        c.Start(True, 5003)
     

@@ -17,8 +17,6 @@ class RPCServer(network.Server):
             clientSock.Send('TxOK')
         else:
             clientSock.Send('TxNO')
-            
-
 
 class RPCClient(network.Client):
 
