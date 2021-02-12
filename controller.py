@@ -37,6 +37,7 @@ class Controller:
         self.minerAddr    = minerAddr
         self.minedBlock   = None
         self.minerThread  = None
+        self.peerLock     = threading.Lock()
 
     def GetVersion(self):
         return VERSION        
@@ -109,31 +110,32 @@ class Controller:
         return version == VERSION
 
     def GetPeerAddrs(self):
-        # todo protect from threadding?
-        addrs = []
-        for peer in self.peers:
-            if peer:
-                addrs.append((peer.hostname, peer.port))
-        return addrs
+        with self.peerLock:
+            addrs = []
+            for peer in self.peers:
+                if peer:
+                    addrs.append((peer.hostname, peer.port))
+            return addrs
 
     def AddPeer(self, hostname, port):
-        #todo protect threading
-        if not self._HasPeer(hostname, port) and not self._IsMe(hostname, port):
-            peer = client.Client(hostname, port, self)
-            if peer.Connect():
-                # Validate version
-                peerVersion = peer.Version()
-                if peerVersion and self.ValidateVersion(peerVersion):
-                    self.peers.append(peer)
-                    return True
-                else:
-                    peer.Close()
-                    Log("Invalid peer version:%d" % peerVersion)
+        with self.peerLock:
+            if not self._HasPeer(hostname, port) and not self._IsMe(hostname, port):
+                peer = client.Client(hostname, port, self)
+                if peer.Connect():
+                    # Validate version
+                    peerVersion = peer.Version()
+                    if peerVersion and self.ValidateVersion(peerVersion):
+                        self.peers.append(peer)
+                        return True
+                    else:
+                        peer.Close()
+                        Log("Invalid peer version:%d" % peerVersion)
         return False
 
     def RemovePeer(self, hostname, port):
-        Log("Removing peer: %s:%d" % (hostname, port))
-        self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
+        with self.peerLock:
+            Log("Removing peer: %s:%d" % (hostname, port))
+            self.peers = [c for c in self.peers if not (c.hostname == hostname and c.port == port)]
 
     def _GetRandomPeer(self):
         if not self.peers:

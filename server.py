@@ -4,7 +4,6 @@ import transaction
 import utils
 import network
 
-
 class Server(network.Server):
     def __init__(self, port, controller):
         super().__init__(port)
@@ -41,7 +40,6 @@ class Server(network.Server):
         
 
     def _Close(self, clientSock, clientAddress, msgType, msg):
-        
         if msg :
             (hostname, port) = self.__GetServerAddrFromMsg(msg)
             self.controller.RemovePeer(hostname, port)
@@ -65,7 +63,7 @@ class Server(network.Server):
     def __GetMempoolMsg(self):
         msg = b''
         numTx = 0
-        for tx in self.controller.blockchain.mempool.values():
+        for tx in self.controller.blockchain.GetMempoolTransactions():
             txBytes = transaction.EncodeTx(tx)
             if txBytes:
                 msg += txBytes

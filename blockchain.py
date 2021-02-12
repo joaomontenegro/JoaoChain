@@ -5,6 +5,7 @@ from collections import OrderedDict
 import block
 import transaction
 import utils
+import threading
 
 MAX_TX_PER_BLOCK = 10
 
@@ -16,13 +17,16 @@ def Log(msg):
 
 class Blockchain:
     def __init__(self, difficulty=1):
-        self.mempool    = OrderedDict()
-        self.blocks     = {}
-        self.difficulty = difficulty
-        self.reward     = 10
-        self.balances   = {}
-        self.highest    = None
-        self.height     = 0
+        self.mempool     = OrderedDict()
+        self.blocks      = {}
+        self.difficulty  = difficulty
+        self.reward      = 10
+        self.balances    = {}
+        self.highest     = None
+        self.height      = 0
+
+        self.mempoolLock = threading.Lock()
+        self.blockLock   = threading.Lock()
 
     def SetDifficulty(self, newDifficulty):
         self.difficulty = newDifficulty
@@ -31,39 +35,40 @@ class Blockchain:
         print (" - Adding Block:", b)
         hash = b.GetHash()
 
-        if not self._ValidateMiner(b):
-            Log("Invalid Miner Sig for %s" % b)
-            return False
+        with self.blockLock:
 
-        if not self._ValidateParent(b):
-            # TODO send to hanging blocks list?
-            Log("Invalid Parent for %s" % b)
-            return False
+            if not self._ValidateMiner(b):
+                Log("Invalid Miner Sig for %s" % b)
+                return False
 
-        if not self._ValidatePow(b):
-            Log("Invalid POW for %s" % b)
-            return False
+            if not self._ValidateParent(b):
+                # TODO send to hanging blocks list?
+                Log("Invalid Parent for %s" % b)
+                return False
 
-        if not self._ValidateTxSignatures(b):
-            Log("Invalid Tx Sigs for %s" % b)
-            return False
+            if not self._ValidatePow(b):
+                Log("Invalid POW for %s" % b)
+                return False
 
-        chain = self.GetChain(b.parent)
-        blockBalances = self._CalculateBalances(b, chain)
-        if blockBalances is None:
-            Log("Invalid Balances for %s" % b)
-            return False
-        self.balances[hash] = blockBalances
+            if not self._ValidateTxSignatures(b):
+                Log("Invalid Tx Sigs for %s" % b)
+                return False
 
-        blockHeight = len(chain) + 1
-        if blockHeight > self.height:
-            self.height = blockHeight
-            self.highest = hash
-        
-        self._RemoveFromMemPool(b)
+            chain = self.GetChain(b.parent)
+            blockBalances = self._CalculateBalances(b, chain)
+            if blockBalances is None:
+                Log("Invalid Balances for %s" % b)
+                return False
+            self.balances[hash] = blockBalances
 
-        self.blocks[hash] = b
-        self.balances[hash] = blockBalances
+            blockHeight = len(chain) + 1
+            if blockHeight > self.height:
+                self.height = blockHeight
+                self.highest = hash
+            
+            self._RemoveFromMemPool(b)
+
+            self.blocks[hash] = b
         
         return True
 
@@ -71,7 +76,8 @@ class Blockchain:
         return self.blocks.get(hash, None)
 
     def GetHighestBlockHash(self):
-        return self.highest
+        with self.blockLock:
+            return self.highest
 
     def GetHighestBlock(self):
         if self.highest is None:
@@ -101,7 +107,8 @@ class Blockchain:
         return 0
 
     def Mine(self, miner, parent, maxNumTx=MAX_TX_PER_BLOCK):
-        parentBalances = self.balances.get(parent, {})
+        with self.blockLock:
+            parentBalances = self.balances.get(parent, {})
 
         # Create the reward transaction
         rewardTx = transaction.Transaction(miner, miner, self.reward)
@@ -113,36 +120,37 @@ class Blockchain:
         tmpBalances = { miner : parentBalances.get(miner, 0) + self.reward }
 
         # Add transactions from mempool, checking if the from addr has enough balance
-        while len(transactions) < maxNumTx + 1:
-            # Stop if we ran out of mempool
-            if not self.mempool: break
+        with self.mempoolLock:
+            while len(transactions) < maxNumTx + 1:
+                # Stop if we ran out of mempool
+                if not self.mempool: break
 
-            # Get the first tx in the mempool and validate its sig
-            tx = self.mempool.popitem(last=False)[1]
-            if not tx.ValidateSignature(): continue
+                # Get the first tx in the mempool and validate its sig
+                tx = self.mempool.popitem(last=False)[1]
+                if not tx.ValidateSignature(): continue
 
-            # Calculate the balance of the from addr, minus the tx amout
-            fromBal = tmpBalances.get(tx.fromAddr,
-                        parentBalances.get(tx.fromAddr, 0)) - tx.amount
-            if fromBal < 0:
-                print("Rejected %s" % tx)
-                # Reject tx and add to the end of the pool
-                rejected.append(tx)
-                continue
-            
-            # Calculate the balance of the to addr, plus the tx amout
-            toBal = tmpBalances.get(tx.toAddr,
-                        parentBalances.get(tx.toAddr, 0)) + tx.amount
+                # Calculate the balance of the from addr, minus the tx amout
+                fromBal = tmpBalances.get(tx.fromAddr,
+                            parentBalances.get(tx.fromAddr, 0)) - tx.amount
+                if fromBal < 0:
+                    print("Rejected %s" % tx)
+                    # Reject tx and add to the end of the pool
+                    rejected.append(tx)
+                    continue
+                
+                # Calculate the balance of the to addr, plus the tx amout
+                toBal = tmpBalances.get(tx.toAddr,
+                            parentBalances.get(tx.toAddr, 0)) + tx.amount
 
-            # Update the balances
-            tmpBalances[tx.fromAddr] = fromBal
-            tmpBalances[tx.toAddr] = toBal
+                # Update the balances
+                tmpBalances[tx.fromAddr] = fromBal
+                tmpBalances[tx.toAddr] = toBal
 
-            transactions.append(tx)
+                transactions.append(tx)
 
-        # Add the rejected txs to the end of the mempool
-        for rTx in rejected:
-            self.mempool[rTx.GetHash()] = rTx
+            # Add the rejected txs to the end of the mempool
+            for rTx in rejected:
+                self.mempool[rTx.GetHash()] = rTx
 
         # Create the Block
         b = block.Block(parent, transactions, utils.GetCurrentTime(), miner)
@@ -157,17 +165,23 @@ class Blockchain:
         return b
 
     def AddTransaction(self, tx):
-        if tx.ValidateSignature():
-            if tx.GetHash() not in self.mempool:
-                Log("Adding tx: %s" % tx)
-                self.mempool[tx.GetHash()] = tx
-            return True
-        else:
-            Log("Tried to add invalid tx: %s" % tx)
-            return False
+        with self.mempoolLock:
+            if tx.ValidateSignature():
+                if tx.GetHash() not in self.mempool:
+                    Log("Adding tx: %s" % tx)
+                    self.mempool[tx.GetHash()] = tx
+                return True
+            else:
+                Log("Tried to add invalid tx: %s" % tx)
+                return False
+
+    def GetMempoolTransactions(self):
+        with self.mempoolLock:
+            return self.mempool.values()
 
     def HasMemPool(self):
-        return len(self.mempool) > 0
+        with self.mempoolLock:
+            return len(self.mempool) > 0
 
     def _ValidateMiner(self, b):
         return b.miner is not None and b.ValidateSignature()
