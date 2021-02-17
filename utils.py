@@ -6,6 +6,12 @@ def IntToBytes(i, size=4):
 def BytesToInt(b):
     return int.from_bytes(b, "big")
 
+def AddrStrToBytes(addrStr):
+    return bytes.fromhex(addrStr[:256])
+
+def BytesToAddrStr(addr):
+    return addr.hex()[:256]
+
 def GetCurrentTime():
     return int(round(time.time()))
 

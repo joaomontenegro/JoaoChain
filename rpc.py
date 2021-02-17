@@ -18,6 +18,15 @@ class RPCServer(network.Server):
         else:
             clientSock.Send('TxNO')
 
+    def _GetBalance(self, clientSock, clientAddress, msgType, msg):
+        addr = msg[:256]
+        balance = self.controller.blockchain.GetBalance(addr)
+        if balance is not None:
+            clientSock.Send('Balance', utils.IntToBytes(balance))
+        else:
+            clientSock.Send('NoBalance')
+
+
 class RPCClient(network.Client):
 
     def Version(self):
@@ -31,6 +40,16 @@ class RPCClient(network.Client):
         self.Send('AddTx', transaction.EncodeTx(tx))
         msgType, _msg = self.Receive()
         return msgType == 'TxOK'
+
+    def GetBalance(self, addrStr):
+        addr = utils.AddrStrToBytes(addrStr)
+        self.Send('GetBalance', addr)
+        msgType, msg = self.Receive()
+        if msgType == 'Balance':
+            return utils.BytesToInt(msg[0:4])
+        return None
+
+
 
 if __name__ == '__main__':
     import sys
@@ -63,10 +82,17 @@ if __name__ == '__main__':
             tx.Sign(hashlib.sha256(b'blah').digest())
             print('Added:', client.AddTx(tx))
 
+        elif msgType.lower() == "balance":
+            if len(sys.argv) < 5:
+                print("No Address Specified...")
+                exit(1)
+            bal = client.GetBalance(sys.argv[4])
+            print('Balance:', bal)
+
         client.Close()
 
     else:
-        print ("USAGE: %s HOSTNAME PORT [version|tx|badtx...]" )
+        print ("USAGE: %s HOSTNAME PORT [version|tx|badtx|balance...]" )
 
 
 
