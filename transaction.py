@@ -2,11 +2,15 @@ import hashlib
 import utils
 
 class Transaction:
+
     def __init__(self, fromAddr, toAddr, amount):
         self.fromAddr  = fromAddr
         self.toAddr    = toAddr
         self.amount    = amount
         self.signature = None # todo add here - solve proper signature first
+
+        # Metadata
+        self.timeAdded = None
 
     def Sign(self, signature):
         self.signature = signature

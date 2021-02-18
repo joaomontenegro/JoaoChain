@@ -21,9 +21,7 @@ class Blockchain:
         self.blocks      = {}
         self.difficulty  = difficulty
         self.reward      = 10
-        self.balances    = {}
         self.highest     = None
-        self.height      = 0
 
         self.mempoolLock = threading.Lock()
         self.blockLock   = threading.Lock()
@@ -34,6 +32,10 @@ class Blockchain:
     def AddBlock(self, b):
         print (" - Adding Block:", b)
         hash = b.GetHash()
+
+        if b.parent != self.highest:
+            Log("Trying to add a block that is not the highest! Abort!")
+            return False
 
         with self.blockLock:
 
@@ -59,16 +61,17 @@ class Blockchain:
             if blockBalances is None:
                 Log("Invalid Balances for %s" % b)
                 return False
-            self.balances[hash] = blockBalances
 
-            blockHeight = len(chain) + 1
-            if blockHeight > self.height:
-                self.height = blockHeight
-                self.highest = hash
-            
             self._RemoveFromMemPool(b)
+            self.highest = hash
 
+            # Add the block
             self.blocks[hash] = b
+
+            # Set the metadata
+            b.height    = len(chain) + 1
+            b.timeAdded = utils.GetCurrentTime()
+            b.balances  = blockBalances
         
         return True
 
@@ -101,14 +104,18 @@ class Blockchain:
 
         chain = self.GetChain(hash)
         for b in chain:
-            balance = self.balances.get(b.GetHash()).get(addr, None)
+            balance = b.balances.get(addr, None)
             if balance is not None:
                 return balance
         return 0
 
-    def Mine(self, miner, parent, maxNumTx=MAX_TX_PER_BLOCK):
-        with self.blockLock:
-            parentBalances = self.balances.get(parent, {})
+    def Mine(self, miner, maxNumTx=MAX_TX_PER_BLOCK):
+        Log (" --> Mining")
+        parentHash = self.highest
+        if parentHash:
+            parentBalances = self.GetBlock(parentHash).balances
+        else:
+            parentBalances = {}
 
         # Create the reward transaction
         rewardTx = transaction.Transaction(miner, miner, self.reward)
@@ -153,7 +160,10 @@ class Blockchain:
                 self.mempool[rTx.GetHash()] = rTx
 
         # Create the Block
-        b = block.Block(parent, transactions, utils.GetCurrentTime(), miner)
+        b = block.Block(parentHash,
+                        transactions,
+                        utils.GetCurrentTime(),
+                        miner)
         
         # Mine it
         while(not self._ValidatePow(b)):
@@ -170,6 +180,10 @@ class Blockchain:
                 if tx.GetHash() not in self.mempool:
                     Log("Adding tx: %s" % tx)
                     self.mempool[tx.GetHash()] = tx
+
+                    # Set the metadata
+                    tx.timeAdded = utils.GetCurrentTime()
+                    
                 return True
             else:
                 Log("Tried to add invalid tx: %s" % tx)
@@ -232,8 +246,7 @@ class Blockchain:
 
     def _GetBalanceInChain(self, addr, chain):
         for ancestor in chain:
-            hash = ancestor.GetHash()
-            balance = self.balances.get(hash, {}).get(addr, None)
+            balance = ancestor.balances.get(addr, None)
             if balance is not None:
                 return balance
         return 0

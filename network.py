@@ -216,7 +216,7 @@ class Server:
         while clientSock.IsConnected():
             try:
                 msgType, msg = clientSock.Receive()
-                print ("  Received:", msgType)
+                #print ("  Received:", msgType)
 
                 # Call the methor with the name of the message type prefixed with _.
                 methodName = '_%s' % msgType

@@ -13,6 +13,11 @@ class Block:
         #self.gas         = 0
         self.transactions = transactions
 
+        # Metadata
+        self.height    = None
+        self.timeAdded = None
+        self.balances  = {}
+
     def Sign(self, signature):
         self.signature = signature
 

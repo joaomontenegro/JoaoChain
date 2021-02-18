@@ -73,12 +73,12 @@ class Controller:
                 if timerUpdatePeers.IsDone():
                     self._UpdatePeers()
                     timerUpdatePeers.Reset()
-                    Log("My Peers: " + str(self.GetPeerAddrs()))
+                    #Log("My Peers: " + str(self.GetPeerAddrs()))
 
                 if timerUpdateMempool.IsDone():
                     self._UpdateMempool()
                     timerUpdateMempool.Reset()
-                    Log("My Mempool: " + str(len(self.blockchain.mempool)))
+                    #Log("My Mempool: " + str(len(self.blockchain.mempool)))
 
                 # If we are a miner
                 if self.minerAddr is not None:
@@ -111,11 +111,7 @@ class Controller:
 
     def GetPeerAddrs(self):
         with self.peerLock:
-            addrs = []
-            for peer in self.peers:
-                if peer:
-                    addrs.append((peer.hostname, peer.port))
-            return addrs
+            return self._GetPeerAddrs()
 
     def AddPeer(self, hostname, port):
         with self.peerLock:
@@ -126,6 +122,7 @@ class Controller:
                     peerVersion = peer.Version()
                     if peerVersion and self.ValidateVersion(peerVersion):
                         self.peers.append(peer)
+                        Log("My Peers: %s"  % self._GetPeerAddrs())
                         return True
                     else:
                         peer.Close()
@@ -149,6 +146,13 @@ class Controller:
             if peer.hostname == hostname and peer.port == port:
                 return True
         return False
+
+    def _GetPeerAddrs(self):
+        addrs = []
+        for peer in self.peers:
+            if peer:
+                addrs.append((peer.hostname, peer.port))
+        return addrs
 
     def _IsMe(self, hostname, port):
         return (self.server and
@@ -203,8 +207,7 @@ class Controller:
         if self.minedBlock is not None:
             return
 
-        parent = self.blockchain.GetHighestBlockHash()
-        self.minedBlock = self.blockchain.Mine(self.minerAddr, parent)
+        self.minedBlock = self.blockchain.Mine(self.minerAddr)
 
     def _BroadcastBlock(self, bl):
         for peer in self.peers:
