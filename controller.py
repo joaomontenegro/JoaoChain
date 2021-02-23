@@ -15,8 +15,10 @@ INITIAL_ADDRS = [("PORTO", 5001)]
 DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
-UPDATE_PEERS_TIME = 1.0
+UPDATE_PEERS_TIME = 5.0
 UPDATE_MEMPOOL_TIME = 1.0
+CLEAN_MEMPOOL_TIME = 10.0
+CLEAN_MEMPOOL_MINUTS_AGO = 30.0
 NUM_PEERS = 5
 DIFFICULTY = 5
 
@@ -54,6 +56,7 @@ class Controller:
         timerMainLoop = utils.Timer(MAIN_LOOP_TIME)
         timerUpdatePeers = utils.Timer(UPDATE_PEERS_TIME)
         timerUpdateMempool = utils.Timer(UPDATE_MEMPOOL_TIME)
+        timerCleanMempool = utils.Timer(CLEAN_MEMPOOL_TIME)
 
         if startServer:
             Log("Starting server")
@@ -79,6 +82,10 @@ class Controller:
                     self._UpdateMempool()
                     timerUpdateMempool.Reset()
                     #Log("My Mempool: " + str(len(self.blockchain.mempool)))
+
+                if timerCleanMempool.IsDone():
+                    self._CleanMempool()
+                    timerCleanMempool.Reset()
 
                 # If we are a miner
                 if self.minerAddr is not None:
@@ -202,6 +209,15 @@ class Controller:
         mempool = peer.GetMempool()
         for tx in mempool:
             self.blockchain.AddTransaction(tx)
+
+    def _CleanMempool(self):
+        print ("before",
+                len(self.blockchain.mempool),
+                utils.GetCurrentTime(),
+                utils.GetTimeMinutesAgo(CLEAN_MEMPOOL_MINUTS_AGO))
+        timestamp = utils.GetTimeMinutesAgo(CLEAN_MEMPOOL_MINUTS_AGO)
+        self.blockchain.CleanMempool(timestamp)
+        print ("after", len(self.blockchain.mempool))
 
     def _Mine(self):
         if self.minedBlock is not None:

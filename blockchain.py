@@ -189,13 +189,18 @@ class Blockchain:
                 Log("Tried to add invalid tx: %s" % tx)
                 return False
 
+    def HasMemPool(self):
+        with self.mempoolLock:
+            return len(self.mempool) > 0
+
     def GetMempoolTransactions(self):
         with self.mempoolLock:
             return self.mempool.values()
 
-    def HasMemPool(self):
-        with self.mempoolLock:
-            return len(self.mempool) > 0
+    def CleanMempool(self, timestamp):
+        for txHash, tx in self.mempool.items():
+            if tx.timeAdded < timestamp:
+                del self.mempool[txHash]
 
     def _ValidateMiner(self, b):
         return b.miner is not None and b.ValidateSignature()
