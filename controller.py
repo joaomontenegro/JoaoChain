@@ -10,6 +10,7 @@ import threading
 import time
 import random
 
+# TODO: add a config
 VERSION = 1
 INITIAL_ADDRS = [("PORTO", 5001)]
 DEFAULT_SERVER_PORT = 5001
@@ -18,7 +19,8 @@ MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 5.0
 UPDATE_MEMPOOL_TIME = 1.0
 CLEAN_MEMPOOL_TIME = 10.0
-CLEAN_MEMPOOL_MINUTS_AGO = 30.0
+CLEAN_MEMPOOL_MINUTES_AGO = 30.0
+SYNC_BLOCKCHAIN_TIME = 30
 NUM_PEERS = 5
 DIFFICULTY = 5
 
@@ -42,7 +44,13 @@ class Controller:
         self.peerLock     = threading.Lock()
 
     def GetVersion(self):
-        return VERSION        
+        return VERSION
+
+    def IsMiner(self):
+        return self.minerAddr is not None
+
+    def IsMining(self):
+        return self.minerThread is not None
 
     def Start(self, startServer=True, serverPort=DEFAULT_SERVER_PORT,
               startRPC=False, rpcPort=DEFAULT_RPC_PORT):
@@ -52,11 +60,12 @@ class Controller:
         if self.minerAddr:
             Log("Miner Address: %s" % self.minerAddr.hex())
         
-        self.isRunning = True
-        timerMainLoop = utils.Timer(MAIN_LOOP_TIME)
-        timerUpdatePeers = utils.Timer(UPDATE_PEERS_TIME)
-        timerUpdateMempool = utils.Timer(UPDATE_MEMPOOL_TIME)
-        timerCleanMempool = utils.Timer(CLEAN_MEMPOOL_TIME)
+        self.isRunning      = True
+        timerMainLoop       = utils.Timer(MAIN_LOOP_TIME)
+        timerUpdatePeers    = utils.Timer(UPDATE_PEERS_TIME)
+        timerUpdateMempool  = utils.Timer(UPDATE_MEMPOOL_TIME)
+        timerCleanMempool   = utils.Timer(CLEAN_MEMPOOL_TIME)
+        timerSyncBlocks = utils.Timer(SYNC_BLOCKCHAIN_TIME)
 
         if startServer:
             Log("Starting server")
@@ -73,23 +82,26 @@ class Controller:
         try:
             # Main Loop
             while True:
+                # Update Peers
                 if timerUpdatePeers.IsDone():
                     self._UpdatePeers()
                     timerUpdatePeers.Reset()
                     #Log("My Peers: " + str(self.GetPeerAddrs()))
 
+                # Update mempool
                 if timerUpdateMempool.IsDone():
                     self._UpdateMempool()
                     timerUpdateMempool.Reset()
                     #Log("My Mempool: " + str(len(self.blockchain.mempool)))
 
+                # Cleanup the mempool
                 if timerCleanMempool.IsDone():
                     self._CleanMempool()
                     timerCleanMempool.Reset()
 
-                # If we are a miner
-                if self.minerAddr is not None:
-                    if self.minerThread is None and self.blockchain.HasMemPool():
+                # Mine in a separate thread
+                if self.IsMiner():
+                    if not self.IsMining() and self.blockchain.HasMemPool():
                         self.minerThread = threading.Thread(name='Miner',
                                                             target=self._Mine)
                         self.minerThread.start()
@@ -100,6 +112,10 @@ class Controller:
                         self.minerThread.join()
                         self.minerThread = None
                         self.minedBlock = None
+                
+                # Sync Blockchain with peers
+                if timerSyncBlocks.IsDone():
+                    self._SyncBlocks()
                 
                 # Sleep until main loop time has passed
                 timerMainLoop.SleepUntilDone()
@@ -211,11 +227,11 @@ class Controller:
             self.blockchain.AddTransaction(tx)
 
     def _CleanMempool(self):
+        timestamp = int(utils.GetCurrentTime() - 60 * CLEAN_MEMPOOL_MINUTES_AGO)
         print ("before",
                 len(self.blockchain.mempool),
                 utils.GetCurrentTime(),
-                utils.GetTimeMinutesAgo(CLEAN_MEMPOOL_MINUTS_AGO))
-        timestamp = utils.GetTimeMinutesAgo(CLEAN_MEMPOOL_MINUTS_AGO)
+                timestamp)
         self.blockchain.CleanMempool(timestamp)
         print ("after", len(self.blockchain.mempool))
 
@@ -228,6 +244,28 @@ class Controller:
     def _BroadcastBlock(self, bl):
         for peer in self.peers:
             peer.AddBlock(bl)
+
+    def _SyncBlocks(self):
+        height = self.blockchain.GetHeight()
+        peer = self._GetRandomPeer()
+        peerHeight, blockHashes = peer.SyncBlocks(height) # TODO: server._SyncBlocks()
+        
+        # Compare heights
+        if peerHeight <= height:
+            return
+
+        newBlockHashes = []
+        # todo: optimize
+        for i in reversed(range(len(blockHashes))):
+            blockHash = blockHashes[i]
+            if self.blockchain.HasBlock(blockHash):
+                newBlockHashes = blockHashes[i:]
+
+        #TODO: ask new blocks to several peers, rather than just this
+        if newBlockHashes:
+            newBlocks = peer.GetBlocks(newBlockHashes) # TODO client/server.GetBlocks()
+            if newBlocks:
+                self.blockchain.AddBlocks(newBlocks) # TODO: Blockchain.AddBlocks()
 
 
 if __name__ == '__main__':

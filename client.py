@@ -49,12 +49,14 @@ class Client(network.Client):
         mempool = []
         
         if not self.Send('GetMempool'):
-            return mempool
+            return []
 
         msgType, msg = self.Receive()
-        if msgType == 'Mempool' and msg:
+        if msgType == 'Mempool' and msg and len(msg) >= 4:
             pos = 4
             numTx = utils.BytesToInt(msg[:pos])
+            if len(msg) != 4 + numTx * transaction.MSG_LEN:
+                return []
             for _i in range(numTx):
                 nextPos = pos + transaction.MSG_LEN
                 tx = transaction.DecodeTx(msg[pos:nextPos])
@@ -73,14 +75,40 @@ class Client(network.Client):
 
         return True
 
+    def SyncBlocks(self, height):
+        # Send msg
+        if self.Send('SyncBlocks', utils.IntToBytes(height)): # TODO: server._SyncBlocks()
+            return None
+
+        # Receive response
+        msgType, msg = self.Receive()
+        msgLen = len(msg)
+        if msgType == "Blocks" and msg and msgLen < 4:
+            return None
+        
+        # Get peer height
+        peerHeight = utils.BytesToInt(msg[:4])
+        if peerHeight <= height or msgLen < 8:
+            return
+
+        # Get number of hashes
+        numHashes = utils.BytesToInt(msg[4:8])
+        if msgLen != 8 + 32 * numHashes:
+            return None
+
+        # Get hashes
+        hashes = []
+        for i in range(8, msgLen, 32):
+            hashes.append(msg[i:i + 32])
+        
+        return peerHeight, hashes
+
     def Close(self):
-        self.Send('Close', self.__GetServerAddrMsg())
-        super().Close()
-
-    #######################
-
-    def __GetServerAddrMsg(self):
+        serverAddr = b''
         if self.controller.server:
             serverPort = self.controller.server.port
-            return ("%s:%d" % (network.GetHostname(), serverPort)).encode()
-        return b''
+            serverAddr = ("%s:%d" % (network.GetHostname(), serverPort)).encode()
+
+        self.Send('Close', serverAddr)
+        super().Close()
+s

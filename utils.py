@@ -15,9 +15,6 @@ def BytesToAddrStr(addr):
 def GetCurrentTime():
     return int(round(time.time()))
 
-def GetTimeMinutesAgo(mins):
-    return int(round(time.time() - mins * 60))
-
 class Timer:
     def __init__(self, interval):
         self.interval = interval

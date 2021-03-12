@@ -29,6 +29,7 @@ class Blockchain:
     def SetDifficulty(self, newDifficulty):
         self.difficulty = newDifficulty
 
+    # TODO: Allow to force as highest block
     def AddBlock(self, b):
         print (" - Adding Block:", b)
         hash = b.GetHash()
@@ -38,7 +39,6 @@ class Blockchain:
             return False
 
         with self.blockLock:
-
             if not self._ValidateMiner(b):
                 Log("Invalid Miner Sig for %s" % b)
                 return False
@@ -75,17 +75,31 @@ class Blockchain:
         
         return True
 
+    def HasBlock(self, hash):
+        with self.blockLock:
+            return hash in self.blocks
+
     def GetBlock(self, hash):
-        return self.blocks.get(hash, None)
+        with self.blockLock:
+            return self.blocks.get(hash, None)
+
+    def GetHeight(self):
+        with self.blockLock:
+            return len(self.blocks)
 
     def GetHighestBlockHash(self):
         with self.blockLock:
             return self.highest
 
+    def GetHeightAndHighestBlockHash(self):
+        with self.blockLock:
+            return len(self.blocks), self.highest
+
     def GetHighestBlock(self):
-        if self.highest is None:
-            return None
-        return self.GetBlock(self.highest)
+        with self.blockLock:
+            if self.highest is None:
+                return None
+            return self.blocks.get(self.highest, None)
 
     def GetChain(self, hash):
         chain = []
@@ -111,6 +125,9 @@ class Blockchain:
 
     def Mine(self, miner, maxNumTx=MAX_TX_PER_BLOCK):
         Log (" --> Mining")
+        if not self.HasMemPool():
+            return None
+
         parentHash = self.highest
         if parentHash:
             parentBalances = self.GetBlock(parentHash).balances
