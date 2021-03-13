@@ -17,6 +17,7 @@ class Block:
         self.height    = None
         self.timeAdded = None
         self.balances  = {}
+        self.byteSize  = 0
 
     def Sign(self, signature):
         self.signature = signature
@@ -87,6 +88,7 @@ def DecodeBlock(blBytes):
     signature = blBytes[72:104]
     numTx = utils.BytesToInt(blBytes[104:108])
 
+    byteSize = 108
     start = 108
     transactions = []
     for _ in range(numTx):
@@ -95,8 +97,10 @@ def DecodeBlock(blBytes):
         if tx:
             transactions.append(tx)
         start = end
+        byteSize += transaction.MSG_LEN
     
     bl = Block(parent, transactions, timestamp, miner, nonce)
+    bl.byteSize = byteSize
     bl.Sign(signature)
 
     if not bl.ValidateSignature():

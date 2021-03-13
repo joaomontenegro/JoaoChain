@@ -38,6 +38,20 @@ class Server(network.Server):
         bl = block.DecodeBlock(msg)
         self.controller.blockchain.AddBlock(bl)
         
+    def _SyncBlockHashes(self, clientSock, clientAddress, msgType, msg):
+        if not msg or len(msg) != 4:
+            return
+
+        theirHeight = utils.BytesToInt(msg)
+        height = self.controller.blockchain.GetHeight()
+
+        if height < theirHeight:
+            clientSock.Send('HashesNO')
+            return
+
+        chain = self.controller.blockchain.GetChain()
+        msg = self.__GetBlockAddrsMessage(chain)
+        clientSock.Send('Hashes', msg)
 
     def _Close(self, clientSock, clientAddress, msgType, msg):
         if msg :
@@ -70,8 +84,15 @@ class Server(network.Server):
                 numTx += 1        
 
         return utils.IntToBytes(numTx, 4) + msg
-        
 
     def __GetServerAddrFromMsg(self, msg):
         (hostname, port) = msg.decode().split(':')
         return (hostname, int(port))
+
+    def __GetBlockAddrsMessage(self, chain):
+        msg = b''
+        for hash in chain:
+            msg += hash
+        
+        return msg
+

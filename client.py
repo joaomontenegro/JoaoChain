@@ -77,13 +77,13 @@ class Client(network.Client):
 
     def SyncBlocks(self, height):
         # Send msg
-        if self.Send('SyncBlocks', utils.IntToBytes(height)): # TODO: server._SyncBlocks()
+        if self.Send('SyncBlockHashes', utils.IntToBytes(height)):
             return None
 
         # Receive response
         msgType, msg = self.Receive()
         msgLen = len(msg)
-        if msgType == "Blocks" and msg and msgLen < 4:
+        if msgType == "Hashes" and msg and msgLen < 4:
             return None
         
         # Get peer height
@@ -103,6 +103,33 @@ class Client(network.Client):
         
         return peerHeight, hashes
 
+    def GetBlocks(self, blockHashes):
+        # Send msg
+        outMsg = b''
+        for blockHash in blockHashes:
+            outMsg += blockHash
+        if not self.Send('GetBlocks', outMsg):
+            return None
+
+        # Receive response
+        msgType, msg = self.Receive()
+        msgLen = len(msg)
+        if msgType == "Blocks" and msg and msgLen < 4:
+            return None
+
+        numBlocks = utils.BytesToInt(msg[:4])
+        blocks = []
+        pos = 4
+        for _ in range(numBlocks):
+            b = block.DecodeBlock(msg[pos:])
+            if b is None:
+                return []
+            
+            blocks.append(b)
+            pos += b.byteSize
+        
+        return blocks
+
     def Close(self):
         serverAddr = b''
         if self.controller.server:
@@ -111,4 +138,3 @@ class Client(network.Client):
 
         self.Send('Close', serverAddr)
         super().Close()
-s

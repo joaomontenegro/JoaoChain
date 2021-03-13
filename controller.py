@@ -248,7 +248,7 @@ class Controller:
     def _SyncBlocks(self):
         height = self.blockchain.GetHeight()
         peer = self._GetRandomPeer()
-        peerHeight, blockHashes = peer.SyncBlocks(height) # TODO: server._SyncBlocks()
+        peerHeight, blockHashes = peer.SyncBlocks(height)
         
         # Compare heights
         if peerHeight <= height:
@@ -263,9 +263,10 @@ class Controller:
 
         #TODO: ask new blocks to several peers, rather than just this
         if newBlockHashes:
-            newBlocks = peer.GetBlocks(newBlockHashes) # TODO client/server.GetBlocks()
+            newBlocks = peer.GetBlocks(newBlockHashes)
+            # TODO: check if blocks form a chain
             if newBlocks:
-                self.blockchain.AddBlocks(newBlocks) # TODO: Blockchain.AddBlocks()
+                self.blockchain.AddBlocks(reversed(newBlocks))
 
 
 if __name__ == '__main__':

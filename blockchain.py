@@ -56,7 +56,7 @@ class Blockchain:
                 Log("Invalid Tx Sigs for %s" % b)
                 return False
 
-            chain = self.GetChain(b.parent)
+            chain = self._GetChain(b.parent)
             blockBalances = self._CalculateBalances(b, chain)
             if blockBalances is None:
                 Log("Invalid Balances for %s" % b)
@@ -75,6 +75,10 @@ class Blockchain:
         
         return True
 
+    def AddBlocks(self, blocks):
+        for b in blocks:
+            self.AddBlock(b) #TODO: substitute other branch?
+
     def HasBlock(self, hash):
         with self.blockLock:
             return hash in self.blocks
@@ -82,6 +86,9 @@ class Blockchain:
     def GetBlock(self, hash):
         with self.blockLock:
             return self.blocks.get(hash, None)
+
+    def GetChain(self, hash):
+        return self._GetChain(hash)
 
     def GetHeight(self):
         with self.blockLock:
@@ -101,27 +108,10 @@ class Blockchain:
                 return None
             return self.blocks.get(self.highest, None)
 
-    def GetChain(self, hash):
-        chain = []
-        while hash is not None:
-            b = self.blocks.get(hash, None)
-            if not b: return None
-            chain.append(b)
-            hash = b.parent
-        return chain
-
     def GetBalance(self, addr, hash=None):
-        if hash is None:
-            if self.highest is None:
-                return None
-            hash = self.highest
-
-        chain = self.GetChain(hash)
-        for b in chain:
-            balance = b.balances.get(addr, None)
-            if balance is not None:
-                return balance
-        return 0
+        with self.blockLock:
+            chain = self._GetChain(hash)
+            return self._GetBalanceInChain(addr, chain)
 
     def Mine(self, miner, maxNumTx=MAX_TX_PER_BLOCK):
         Log (" --> Mining")
@@ -265,6 +255,15 @@ class Blockchain:
             balances[tx.toAddr] = toBalance + tx.amount
         
         return balances
+
+    def _GetChain(self, hash=None):
+        chain = []
+        while hash is not None:
+            b = self.blocks.get(hash, None)
+            if not b: return None
+            chain.append(b)
+            hash = b.parent
+        return chain
 
     def _GetBalanceInChain(self, addr, chain):
         for ancestor in chain:
