@@ -1,6 +1,7 @@
 import utils
 import network
 import transaction
+import random
 
 class RPCServer(network.Server):
     def __init__(self, port, controller):
@@ -70,7 +71,8 @@ if __name__ == '__main__':
             fromAddr = hashlib.sha256(b'1111').digest()
             toAddr = hashlib.sha256(b'2222').digest()
             amount = 0
-            tx = transaction.Transaction(fromAddr, toAddr, amount)
+            nonce = random.randint(0, 10000)
+            tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
             tx.Sign(tx.GetHash())
             print('Added:', client.AddTx(tx))
 

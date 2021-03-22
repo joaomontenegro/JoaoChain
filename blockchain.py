@@ -29,14 +29,11 @@ class Blockchain:
     def SetDifficulty(self, newDifficulty):
         self.difficulty = newDifficulty
 
-    # TODO: Allow to force as highest block
     def AddBlock(self, b):
-        print (" - Adding Block:", b)
+        print (" ======== Adding Block:", b)
         hash = b.GetHash()
 
-        if b.parent != self.highest:
-            Log("Trying to add a block that is not the highest! Abort!")
-            return False
+        #TODO: check if block is already present in chain
 
         with self.blockLock:
             if not self._ValidateMiner(b):
@@ -62,22 +59,37 @@ class Blockchain:
                 Log("Invalid Balances for %s" % b)
                 return False
 
-            self._RemoveFromMemPool(b)
-            self.highest = hash
+            # Get the parent height     
+            self._RemoveTxsFromMemPool(b)
+
+            # Get the parent height   
+            parent = self.blocks.get(b.parent, None)
+            print (" ==== PARENT: ", parent)
+            if parent:
+                parentHeight = parent.height
+            else:
+                parentHeight = 0
+
+            # Update highest if this is indeed the highest
+            highestBlock = self.blocks.get(self.highest, None)
+            if highestBlock is None or parentHeight == highestBlock.height:
+                self.highest = b.GetHash()
+
+            # Set the metadata
+            b.height    = parentHeight + 1
+            b.timeAdded = utils.GetCurrentTime()
+            b.balances  = blockBalances
+
+            print("---------HEIGHT--->", parentHeight, b.height )
 
             # Add the block
             self.blocks[hash] = b
-
-            # Set the metadata
-            b.height    = len(chain) + 1
-            b.timeAdded = utils.GetCurrentTime()
-            b.balances  = blockBalances
         
         return True
 
     def AddBlocks(self, blocks):
         for b in blocks:
-            self.AddBlock(b) #TODO: substitute other branch?
+            self.AddBlock(b)
 
     def HasBlock(self, hash):
         with self.blockLock:
@@ -87,32 +99,35 @@ class Blockchain:
         with self.blockLock:
             return self.blocks.get(hash, None)
 
-    def GetChain(self, hash):
-        return self._GetChain(hash)
+    def GetChain(self, hash=None):
+        with self.blockLock:
+            return self._GetChain(hash)
+
+    def GetHighestChain(self):
+        with self.blockLock:
+            return self._GetChain(self.highest)
 
     def GetHeight(self):
         with self.blockLock:
-            return len(self.blocks)
+            highestBlock = self.blocks.get(self.highest, None)
+            if highestBlock is None:
+                return 0
+            
+            return highestBlock.height
 
     def GetHighestBlockHash(self):
         with self.blockLock:
             return self.highest
 
-    def GetHeightAndHighestBlockHash(self):
-        with self.blockLock:
-            return len(self.blocks), self.highest
-
     def GetHighestBlock(self):
         with self.blockLock:
-            if self.highest is None:
-                return None
             return self.blocks.get(self.highest, None)
 
-    def GetBalance(self, addr, hash=None):
+    def GetBalance(self, addr):
         with self.blockLock:
-            chain = self._GetChain(hash)
+            chain = self._GetChain(self.highest)
             return self._GetBalanceInChain(addr, chain)
-
+            
     def Mine(self, miner, maxNumTx=MAX_TX_PER_BLOCK):
         Log (" --> Mining")
         if not self.HasMemPool():
@@ -182,11 +197,16 @@ class Blockchain:
         return b
 
     def AddTransaction(self, tx):
+        txHash = tx.GetHash()
+
         with self.mempoolLock:
+            with self.blockLock:
+                if self._IsTxInChain(txHash):
+                    return False
+
             if tx.ValidateSignature():
                 if tx.GetHash() not in self.mempool:
-                    Log("Adding tx: %s" % tx)
-                    self.mempool[tx.GetHash()] = tx
+                    self.mempool[txHash] = tx
 
                     # Set the metadata
                     tx.timeAdded = utils.GetCurrentTime()
@@ -272,11 +292,21 @@ class Blockchain:
                 return balance
         return 0
 
-    def _RemoveFromMemPool(self, b):
+    def _RemoveTxsFromMemPool(self, b):
        for tx in b.transactions:
            txHash = tx.GetHash()
            if txHash in self.mempool:
                self.mempool.pop(txHash)
+
+    def _IsTxInChain(self, txHash):
+        # TODO cache tx hashes?
+        chain = self._GetChain(self.highest)
+        for b in chain:
+            for tx in b.transactions:
+                if txHash == tx.GetHash():
+                    return True
+        return False
+
 
 
 if __name__ == '__main__':

@@ -49,6 +49,9 @@ class Socket():
         return self.sock != None
 
     def Send(self, msgType, payload=b''):
+        if len(msgType) > 12:
+            raise ConnectionError("MsgType > 12 letters:", msgType)
+
         totalSent = 0
         payloadLen = len(payload)
         msgLen = 12 + 4 + payloadLen # type|size|payload
@@ -120,8 +123,8 @@ class Client:
     def Send(self, msgType, payload=b''):
         if not self.IsConnected():
             return False
-        
         try:
+            #print ("Sending", msgType)
             self.sock.Send(msgType, payload)
             return True
         except (ConnectionError, OSError):
@@ -216,7 +219,6 @@ class Server:
         while clientSock.IsConnected():
             try:
                 msgType, msg = clientSock.Receive()
-                #print ("  Received:", msgType)
 
                 # Call the methor with the name of the message type prefixed with _.
                 methodName = '_%s' % msgType

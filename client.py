@@ -77,37 +77,41 @@ class Client(network.Client):
 
     def SyncBlocks(self, height):
         # Send msg
-        if self.Send('SyncBlockHashes', utils.IntToBytes(height)):
-            return None
+        if not self.Send('SyncBlocks', utils.IntToBytes(height)):
+            return 0, None
 
         # Receive response
         msgType, msg = self.Receive()
-        msgLen = len(msg)
-        if msgType == "Hashes" and msg and msgLen < 4:
-            return None
-        
+        if msg:
+            msgLen = len(msg)
+        else:
+            msgLen = 0
+        if msgType != "Hashes" or not msg or msgLen < 4:
+            return 0, None
+
         # Get peer height
         peerHeight = utils.BytesToInt(msg[:4])
         if peerHeight <= height or msgLen < 8:
-            return
+            return 0, None
 
         # Get number of hashes
         numHashes = utils.BytesToInt(msg[4:8])
         if msgLen != 8 + 32 * numHashes:
-            return None
+            return 0, None
 
         # Get hashes
         hashes = []
         for i in range(8, msgLen, 32):
             hashes.append(msg[i:i + 32])
-        
+
         return peerHeight, hashes
 
     def GetBlocks(self, blockHashes):
         # Send msg
-        outMsg = b''
+        outMsg = utils.IntToBytes(len(blockHashes))
         for blockHash in blockHashes:
             outMsg += blockHash
+        
         if not self.Send('GetBlocks', outMsg):
             return None
 
@@ -121,6 +125,9 @@ class Client(network.Client):
         blocks = []
         pos = 4
         for _ in range(numBlocks):
+            if pos >= len(msg):
+                return None
+            
             b = block.DecodeBlock(msg[pos:])
             if b is None:
                 return []
@@ -131,10 +138,13 @@ class Client(network.Client):
         return blocks
 
     def Close(self):
-        serverAddr = b''
+        self.Send('Close', self.__GetServerAddrMsg())
+        super().Close()
+
+    #######################
+   
+    def __GetServerAddrMsg(self):
         if self.controller.server:
             serverPort = self.controller.server.port
-            serverAddr = ("%s:%d" % (network.GetHostname(), serverPort)).encode()
-
-        self.Send('Close', serverAddr)
-        super().Close()
+            return ("%s:%d" % (network.GetHostname(), serverPort)).encode()
+        return b''

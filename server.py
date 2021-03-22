@@ -38,8 +38,9 @@ class Server(network.Server):
         bl = block.DecodeBlock(msg)
         self.controller.blockchain.AddBlock(bl)
         
-    def _SyncBlockHashes(self, clientSock, clientAddress, msgType, msg):
+    def _SyncBlocks(self, clientSock, clientAddress, msgType, msg):
         if not msg or len(msg) != 4:
+            clientSock.Send('HashesNO')
             return
 
         theirHeight = utils.BytesToInt(msg)
@@ -49,9 +50,37 @@ class Server(network.Server):
             clientSock.Send('HashesNO')
             return
 
-        chain = self.controller.blockchain.GetChain()
+        chain = []
+        for b in self.controller.blockchain.GetHighestChain():
+            chain.append(b.GetHash())
+        
         msg = self.__GetBlockAddrsMessage(chain)
         clientSock.Send('Hashes', msg)
+
+    def _GetBlocks(self, clientSock, clientAddress, msgType, msg):
+        msgLen = len(msg)
+
+        if not msg or msgLen < 4:
+            clientSock.Send('BlocksNo')
+            return
+
+        numHashes = utils.BytesToInt(msg[:4])
+        if numHashes < 1 or msgLen != 4 + 32 * numHashes:
+            clientSock.Send('BlocksNo')
+            return
+
+        blocksMsg = utils.IntToBytes(numHashes)
+        for pos in range(4, numHashes * 32, 32):
+            blockHash = msg[pos:pos+32]
+            b = self.controller.blockchain.GetBlock(blockHash)
+            if b is None:
+                # TODO: currently bails if block not found
+                clientSock.Send('BlocksNo')
+                return
+
+            blocksMsg += block.EncodeBlock(b)
+
+        clientSock.Send('Blocks', blocksMsg)
 
     def _Close(self, clientSock, clientAddress, msgType, msg):
         if msg :
@@ -90,8 +119,11 @@ class Server(network.Server):
         return (hostname, int(port))
 
     def __GetBlockAddrsMessage(self, chain):
-        msg = b''
-        for hash in chain:
+        height = utils.IntToBytes(len(chain))
+        numHashes = height #TODO: slice hashes into different messages?
+        msg = height + numHashes
+
+        for hash in reversed(chain):
             msg += hash
         
         return msg
