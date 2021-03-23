@@ -315,16 +315,14 @@ if __name__ == '__main__':
         c.Start(True, port, True, rpcPort)
     
     elif sys.argv[1] == "miner":
-        if numArgs > 3:
-            privateKey = utils.PrivKeyStrToBytes(sys.argv[2])
-            minerAddr  = utils.AddrStrToBytes(sys.argv[3])
-            nextArg = 4
+        port = int(sys.argv[2]) if numArgs > 2 else 5001
+        rpcPort = int(sys.argv[3]) if numArgs > 3 else None
+
+        if numArgs > 5:
+            privateKey = utils.PrivKeyStrToBytes(sys.argv[4])
+            minerAddr  = utils.AddrStrToBytes(sys.argv[5])
         else:
             privateKey, minerAddr = utils.GenerateKeys()
-            nextArg = 2
-
-        port = int(sys.argv[nextArg]) if numArgs > nextArg else 5002
-        
+      
         c = Controller(minerAddr=minerAddr, privateKey=privateKey)
-        c.Start(True, port)
-    
+        c.Start(True, port, rpcPort is not None, rpcPort)
