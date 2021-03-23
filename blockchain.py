@@ -125,8 +125,8 @@ class Blockchain:
             chain = self._GetChain(self.highest)
             return self._GetBalanceInChain(addr, chain)
             
-    def Mine(self, miner, maxNumTx=MAX_TX_PER_BLOCK):
-        Log (" --> Mining")
+    def Mine(self, miner, privateKey, maxNumTx=MAX_TX_PER_BLOCK):
+        Log ("Mining...")
         if not self.HasMemPool():
             return None
 
@@ -139,7 +139,7 @@ class Blockchain:
         # Create the reward transaction
         rewardTx = transaction.Transaction(miner, miner, self.reward)
         # Todo properly sign:
-        rewardTx.Sign(rewardTx.GetHash())
+        rewardTx.Sign(privateKey)
 
         transactions = [ rewardTx ]
         rejected = []
@@ -189,7 +189,7 @@ class Blockchain:
             b.nonce += 1
         
         # Todo properly sign:
-        b.Sign(b.GetHash())
+        b.Sign(privateKey)
 
         return b
 
@@ -304,82 +304,3 @@ class Blockchain:
                     return True
         return False
 
-
-
-if __name__ == '__main__':
-    bc = Blockchain()
-    bc.SetDifficulty(2)
-    
-    miner = hashlib.sha256(b'miner123').digest()
-    print("\nMiner: %s" % miner.hex())
-
-    addrs = [hashlib.sha256(b"0000").digest(),
-             hashlib.sha256(b"1111").digest(),
-             hashlib.sha256(b"2222").digest(),
-             hashlib.sha256(b"3333").digest(),
-             hashlib.sha256(b"4444").digest(),
-             hashlib.sha256(b"5555").digest()]
-
-    print ('\nAdding Txs:')
-
-    t0 = transaction.Transaction(miner, addrs[1], 10)
-    t0.Sign(t0.GetHash())
-    bc.AddTransaction(t0)
-
-    t1 = transaction.Transaction(addrs[1], addrs[2], 5)
-    t1.Sign(t1.GetHash())
-    bc.AddTransaction(t1)
-
-    t2 = transaction.Transaction(addrs[1], addrs[3], 4)
-    t2.Sign(t2.GetHash())
-    bc.AddTransaction(t2)
-
-    t3 = transaction.Transaction(addrs[3], addrs[4], 1)
-    t3.Sign(t3.GetHash())
-    bc.AddTransaction(t3)
-
-    t4 = transaction.Transaction(addrs[3], addrs[5], 3)
-    t4.Sign(t4.GetHash())
-    bc.AddTransaction(t4)
-
-    print ('\nMining and Adding Blocks:')
-    block0 = bc.Mine(miner, None, 3)
-    print (" Adding", block0)
-    if not bc.AddBlock(block0): exit()
-    print ()
-
-    block1 = bc.Mine(miner, block0.GetHash(), 3)
-    print (" Adding", block1)
-    if not bc.AddBlock(block1): exit()
-    print ()
-
-    block2 = bc.Mine(miner, block1.GetHash(), 3)
-    print (" Adding", block2)
-    if not bc.AddBlock(block2): exit()
-    print ()
-
-    from pprint import pprint
-    print ('\n')
-    print("Chain:")
-    chain = bc.GetChain(block2.GetHash())
-    i = 0
-    for b in chain:
-        print("%d: %s" % (i, b))
-        for (hash, amount) in bc.balances.get(b.GetHash(), {}).items():
-            print("  %s: %d" % (hash.hex()[0:8], amount))
-
-        i += 1
-    print()
-
-    # Expectd Results: 
-    #      Miner: 30
-    #      9af15b33: 0
-    #      0ffe1abd: 1
-    #      edee29f8: 5
-    #      318aee3f: 0
-    #      79f06f8f: 1
-    #      c1f330d0: 3
-    print("Balances:")
-    print ("   Miner: %d" % bc.GetBalance(miner))
-    for addr in addrs:
-        print("   %s: %d" % (addr.hex()[0:8],  bc.GetBalance(addr)))

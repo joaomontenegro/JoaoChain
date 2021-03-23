@@ -13,13 +13,13 @@ class Transaction:
         # Metadata
         self.timeAdded = None
 
-    def Sign(self, signature):
-        self.signature = signature
-        return self.ValidateSignature()
+    def Sign(self, privateKey):
+        self.signature = utils.SignData(self.GetHash(), privateKey)
 
     def ValidateSignature(self):
-        # TODO: check if signature actually signs this
-        return self.signature == self.GetHash()
+        return utils.ValidateSignature(self.GetHash(),
+                                       self.signature,
+                                       self.fromAddr)
 
     def GetHash(self):
         b = self.fromAddr
@@ -92,5 +92,6 @@ def DecodeTx(txBytes):
         raise ValueError("Invalid tx length: %d" % end)
 
     tx = Transaction(fromAddr, toAddr, amount, nonce)
-    tx.Sign(signature)    
+    tx.signature = signature
+
     return tx

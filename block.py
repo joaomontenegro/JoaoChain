@@ -19,12 +19,13 @@ class Block:
         self.balances  = {}
         self.byteSize  = 0
 
-    def Sign(self, signature):
-        self.signature = signature
+    def Sign(self, privateKey):
+        self.signature = utils.SignData(self.GetHash(), privateKey)
 
     def ValidateSignature(self):
-        # TODO: check if signature actually signs this
-        return self.signature == self.GetHash()
+        return utils.ValidateSignature(self.GetHash(),
+                                       self.signature,
+                                       self.miner)
 
     def GetHash(self):
         if self.parent is None:
@@ -36,6 +37,9 @@ class Block:
         b += utils.IntToBytes(len(self.transactions))
         b += utils.IntToBytes(self.timestamp, 8)
         b += utils.IntToBytes(self.nonce)
+        for tx in self.transactions:
+            b += tx.GetHash()
+
         return hashlib.sha256(b).digest()
 
     def __repr__(self):
@@ -117,9 +121,6 @@ def DecodeBlock(blBytes):
     
     bl = Block(parent, transactions, timestamp, miner, nonce)
     bl.byteSize = end
-    bl.Sign(signature)
-
-    if not bl.ValidateSignature():
-        return None
+    bl.signature = signature
 
     return bl

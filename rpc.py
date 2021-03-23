@@ -69,20 +69,44 @@ if __name__ == '__main__':
             print('Version: %d' % client.Version())
         
         elif msgType.lower() == "tx":
-            fromAddr = utils.GenerateKeys()[1]
+            privateKey, publicKey = utils.GenerateKeys()
+            fromAddr = publicKey
             toAddr = utils.GenerateKeys()[1]
             amount = 0
             nonce = random.randint(0, 10000)
             tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
-            tx.Sign(tx.GetHash())
-            print('Added:', client.AddTx(tx))
+            tx.Sign(privateKey)
+            if client.AddTx(tx):
+                print('Added:', tx)
+            else:
+                print ('Failed:', tx)
+
+        elif msgType.lower() == "txs":
+            timerMainLoop = utils.Timer(0.5)
+            while True:
+                if random.randint(0, 4) == 0:
+                    privateKey, publicKey = utils.GenerateKeys()
+                    fromAddr = publicKey
+                    toAddr = utils.GenerateKeys()[1]
+                    amount = 0
+                    nonce = random.randint(0, 10000)
+                    tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
+                    tx.Sign(privateKey)
+                    if client.AddTx(tx):
+                        print('Added:', tx)
+                    else:
+                        print ('Failed:', tx)
+                
+                timerMainLoop.SleepUntilDone()
+                timerMainLoop.Reset()
 
         elif msgType.lower() == "badtx":
-            fromAddr = hashlib.sha256(b'1111').digest()
+            privateKey, publicKey = utils.GenerateKeys()
+            fromAddr = publicKey
             toAddr = hashlib.sha256(b'2222').digest()
             amount = 123
             tx = transaction.Transaction(fromAddr, toAddr, amount)
-            tx.Sign(hashlib.sha256(b'blah').digest())
+            tx.Sign(privateKey)
             print('Added:', client.AddTx(tx))
 
         elif msgType.lower() == "balance":

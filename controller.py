@@ -16,11 +16,11 @@ INITIAL_ADDRS = [("PORTO", 5001)]
 DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
-UPDATE_PEERS_TIME = 5.0
-UPDATE_MEMPOOL_TIME = 2.0
-CLEAN_MEMPOOL_TIME = 10.0
-CLEAN_MEMPOOL_MINUTES_AGO = 60.0
-SYNC_BLOCKCHAIN_TIME = 5.0
+UPDATE_PEERS_TIME = 5
+UPDATE_MEMPOOL_TIME = 2
+CLEAN_MEMPOOL_TIME = 60
+CLEAN_MEMPOOL_MINUTES_AGO = 60 * 60
+SYNC_BLOCKCHAIN_TIME = 10.0
 NUM_PEERS = 5 # TODO: find a way of not limiting the size of the network!!!
 DIFFICULTY = 5
 
@@ -30,7 +30,7 @@ def Log(msg):
         print(msg)
 
 class Controller:
-    def __init__(self, minerAddr=None):
+    def __init__(self, minerAddr=None, privateKey=None):
         self.isRunning    = False
         self.blockchain   = blockchain.Blockchain(DIFFICULTY)
         self.peers        = []
@@ -39,9 +39,13 @@ class Controller:
         self.rpc          = None
         self.rpcThread    = None
         self.minerAddr    = minerAddr
+        self.privateKey   = privateKey # TODO: use a callback that safely decrypts and returns the private key
         self.minedBlock   = None
         self.minerThread  = None
         self.peerLock     = threading.Lock()
+
+        if minerAddr and not privateKey:
+            raise ValueError("Miner Address set but private key not specified!")
 
     def GetVersion(self):
         return VERSION
@@ -62,10 +66,10 @@ class Controller:
         
         self.isRunning      = True
         timerMainLoop       = utils.Timer(MAIN_LOOP_TIME)
-        timerUpdatePeers    = utils.Timer(UPDATE_PEERS_TIME)
+        timerUpdatePeers    = utils.Timer(UPDATE_PEERS_TIME, startDone=True)
         timerUpdateMempool  = utils.Timer(UPDATE_MEMPOOL_TIME)
         timerCleanMempool   = utils.Timer(CLEAN_MEMPOOL_TIME)
-        timerSyncBlocks = utils.Timer(SYNC_BLOCKCHAIN_TIME)
+        timerSyncBlocks     = utils.Timer(SYNC_BLOCKCHAIN_TIME, startDone=True)
 
         if startServer:
             Log("Starting server")
@@ -236,7 +240,8 @@ class Controller:
         if self.minedBlock is not None:
             return
 
-        self.minedBlock = self.blockchain.Mine(self.minerAddr)
+        self.minedBlock = self.blockchain.Mine(self.minerAddr,
+                                               self.privateKey)
 
     def _BroadcastBlock(self, bl):
         for peer in self.peers:
@@ -285,8 +290,8 @@ if __name__ == '__main__':
         c.Start(True, 5001, True, 4001)
     
     elif len(sys.argv) > 1 and sys.argv[1] == "miner":
-        minerAddr = utils.GenerateKeys()[1]
-        c = Controller(minerAddr=minerAddr)
+        privateKey, minerAddr = utils.GenerateKeys()
+        c = Controller(minerAddr=minerAddr, privateKey=privateKey)
         c.Start(True, 5002, True, 4002)
     
     else:    

@@ -5,7 +5,7 @@ import ecdsa
 INT_BYTE_LEN     = 4
 ADDR_BYTE_LEN    = 64
 ADDR_HEX_LEN     = ADDR_BYTE_LEN * 2
-SIGN_BYTE_LEN    = 32
+SIGN_BYTE_LEN    = 64
 HASH_BYTE_LEN    = 32
 MSGTYPE_BYTE_LEN = 12
 SHORTEN_BYTE_LEN = 8
@@ -63,9 +63,12 @@ def GetCurrentTime():
     return int(round(time.time()))
 
 class Timer:
-    def __init__(self, interval):
+    def __init__(self, interval, startDone=False):
         self.interval = interval
-        self.starTime = GetCurrentTime()
+        if startDone:
+            self.starTime = 0
+        else:    
+            self.starTime = GetCurrentTime()
 
     def Reset(self, interval=None):
         self.starTime = GetCurrentTime()
