@@ -279,24 +279,51 @@ class Controller:
                 self.blockchain.AddBlocks(newBlocks)
 
 
+def Usage():
+    print("USAGE: controller.py [PORT]")
+    print("     | controller.py server [PORT RPC_PORT]")
+    print("     | controller.py miner [PRIV_KEY PUB_KEY] [PORT]")
+    print("     | controller.py genkeys")
+    print("     | controller.py help")
+
 if __name__ == '__main__':
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "server":
+    numArgs = len(sys.argv)
+
+    if numArgs == 1:
+        port = int(sys.argv[2]) if numArgs > 2 else 5003
+        
         c = Controller()
-        c.Start(True, 5001, True, 4001)
-    
-    elif len(sys.argv) > 1 and sys.argv[1] == "miner":
-        privateKey, minerAddr = utils.GenerateKeys()
-        c = Controller(minerAddr=minerAddr, privateKey=privateKey)
-        if len(sys.argv) > 2:
-            port = int(sys.argv[2])
-        else:
-            port = 5002
         c.Start(True, port)
-    
-    else:    
+
+    elif sys.argv[1] == "help":
+        Usage()
+        sys.exit(1)
+
+    elif sys.argv[1] == "genkeys":
+        privateKey, publicKey = utils.GenerateKeys()
+        print("Private Key: %s" % utils.BytesToPrivKeyStr(privateKey))
+        print("Public Key:  %s" % utils.BytesToAddrStr(publicKey))
+
+    elif sys.argv[1] == "server":
+        port = int(sys.argv[2]) if numArgs > 2 else 5001
+        rpcPort = int(sys.argv[3]) if numArgs > 3 else 4001
+        
         c = Controller()
-        #port = int(sys.argv[1])
-        c.Start(True, 5003)
+        c.Start(True, port, True, rpcPort)
+    
+    elif sys.argv[1] == "miner":
+        if numArgs > 3:
+            privateKey = utils.PrivKeyStrToBytes(sys.argv[2])
+            minerAddr  = utils.AddrStrToBytes(sys.argv[3])
+            nextArg = 4
+        else:
+            privateKey, minerAddr = utils.GenerateKeys()
+            nextArg = 2
+
+        port = int(sys.argv[nextArg]) if numArgs > nextArg else 5002
+        
+        c = Controller(minerAddr=minerAddr, privateKey=privateKey)
+        c.Start(True, port)
     
