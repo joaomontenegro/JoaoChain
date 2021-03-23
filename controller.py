@@ -316,7 +316,7 @@ if __name__ == '__main__':
     
     elif sys.argv[1] == "miner":
         port = int(sys.argv[2]) if numArgs > 2 else 5001
-        rpcPort = int(sys.argv[3]) if numArgs > 3 else None
+        rpcPort = int(sys.argv[3]) if numArgs > 3 else 4001
 
         if numArgs > 5:
             privateKey = utils.PrivKeyStrToBytes(sys.argv[4])
