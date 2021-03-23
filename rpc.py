@@ -1,3 +1,4 @@
+import sys
 import utils
 import network
 import transaction
@@ -53,29 +54,40 @@ class RPCClient(network.Client):
 
 
 
-if __name__ == '__main__':
-    import sys
-    import hashlib
+def Usage(extraCmds = ""):
+    print ("Usage: rpc.py [genkeys] | [version,tx,randomtxs,badtx] HOSTNAME PORT | [balance] ADDR")
 
-    if len(sys.argv) == 2: 
-        if sys.argv[1] == "genkeys":
+if __name__ == '__main__':
+
+    numArgs = len(sys.argv)
+
+    if numArgs < 2: 
+        Usage()
+        sys.exit(1)
+
+    msgType = sys.argv[1].lower()
+
+    if numArgs == 2: 
+        if msgType == "genkeys":
             privateKey, publicKey = utils.GenerateKeys()
             print("Private Key: %s" % utils.BytesToPrivKeyStr(privateKey))
             print("Public Key:  %s" % utils.BytesToAddrStr(publicKey))
+        else:
+            Usage()
 
-    elif len(sys.argv) > 3:
-        hostname = sys.argv[1]
-        port = int(sys.argv[2])
-        msgType = sys.argv[3]
+    elif numArgs > 3:
+        hostname = sys.argv[2]
+        port = int(sys.argv[3])
 
         client = RPCClient(hostname, port)
-        client.Connect()
+        if not client.Connect():
+            sys.exit(1)
 
-        if msgType.lower() == "version":
+        if msgType == "version":
             print('Version: %d' % client.Version())
 
-        elif msgType.lower() == "tx":
-            if len(sys.argv) > 5:
+        elif msgType == "tx":
+            if numArgs > 8:
                 privateKey = utils.PrivKeyStrToBytes(sys.argv[4])
                 fromAddr   = utils.AddrStrToBytes(sys.argv[5])
                 toAddr     = utils.AddrStrToBytes(sys.argv[6])
@@ -95,7 +107,7 @@ if __name__ == '__main__':
             else:
                 print ('Failed:', tx)
 
-        elif msgType.lower() == "txs":
+        elif msgType == "randomtxs":
             timerMainLoop = utils.Timer(0.5)
             while True:
                 if random.randint(0, 4) == 0:
@@ -114,27 +126,23 @@ if __name__ == '__main__':
                 timerMainLoop.SleepUntilDone()
                 timerMainLoop.Reset()
 
-        elif msgType.lower() == "badtx":
+        elif msgType == "badtx":
             privateKey, publicKey = utils.GenerateKeys()
             fromAddr = publicKey
-            toAddr = hashlib.sha256(b'2222').digest()
+            toAddr = utils.GenerateKeys()[1]
             amount = 123
             tx = transaction.Transaction(fromAddr, toAddr, amount)
             tx.Sign(privateKey)
-            print('Added:', client.AddTx(tx))
+            print('Bad TX:', client.AddTx(tx))
 
-        elif msgType.lower() == "balance":
-            if len(sys.argv) < 5:
-                print("No Address Specified...")
-                exit(1)
+        elif msgType == "balance":
+            if numArgs < 5:
+                Usage()
+            
             bal = client.GetBalance(sys.argv[4])
             print('Balance:', bal)
+        
+        else:
+            Usage()
 
         client.Close()
-
-    else:
-        print ("USAGE: %s HOSTNAME PORT [version|tx|badtx|balance...]" )
-
-
-
-

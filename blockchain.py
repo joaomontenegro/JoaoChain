@@ -30,10 +30,12 @@ class Blockchain:
         self.difficulty = newDifficulty
 
     def AddBlock(self, b):
-        print ("Adding Block:", b)
+        Log("Adding Block: %s" % b)
         hash = b.GetHash()
 
-        #TODO: check if block is already present in chain
+        if hash in self.blocks:
+            Log("Block already added...")
+            return
 
         with self.blockLock:
             if not self._ValidateMiner(b):

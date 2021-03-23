@@ -17,7 +17,7 @@ DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 5
-UPDATE_MEMPOOL_TIME = 2
+UPDATE_MEMPOOL_TIME = 1
 CLEAN_MEMPOOL_TIME = 60
 CLEAN_MEMPOOL_MINUTES_AGO = 60 * 60
 SYNC_BLOCKCHAIN_TIME = 10.0
@@ -242,6 +242,7 @@ class Controller:
 
         self.minedBlock = self.blockchain.Mine(self.minerAddr,
                                                self.privateKey)
+        Log("Mined Block %s" % utils.Shorten(self.minedBlock.GetHash()))
 
     def _BroadcastBlock(self, bl):
         for peer in self.peers:
@@ -288,7 +289,11 @@ if __name__ == '__main__':
     elif len(sys.argv) > 1 and sys.argv[1] == "miner":
         privateKey, minerAddr = utils.GenerateKeys()
         c = Controller(minerAddr=minerAddr, privateKey=privateKey)
-        c.Start(True, 5002, True, 4002)
+        if len(sys.argv) > 2:
+            port = int(sys.argv[2])
+        else:
+            port = 5002
+        c.Start(True, port)
     
     else:    
         c = Controller()
