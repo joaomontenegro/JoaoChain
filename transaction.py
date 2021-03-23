@@ -29,15 +29,13 @@ class Transaction:
         return hashlib.sha256(b).digest()
 
     def __repr__(self):
-        HASH_STR_LEN = 8
-
         return 'Tx{%s, f:%s, t:%s, a:%d, n:%d, s:%s}' % (
-            self.GetHash().hex()[:HASH_STR_LEN],
-            self.fromAddr.hex()[:HASH_STR_LEN],
-            self.toAddr.hex()[:HASH_STR_LEN],
+            utils.Shorten(self.GetHash()),
+            utils.Shorten(self.fromAddr),
+            utils.Shorten(self.toAddr),
             self.amount,
             self.nonce,
-            self.signature.hex()[:HASH_STR_LEN])
+            utils.Shorten(self.signature))
 
     def __eq__(self, other):
         if other is None:

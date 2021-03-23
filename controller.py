@@ -58,7 +58,7 @@ class Controller:
             return
 
         if self.minerAddr:
-            Log("Miner Address: %s" % self.minerAddr.hex())
+            Log("Miner Address: %s" % utils.Shorten(self.minerAddr))
         
         self.isRunning      = True
         timerMainLoop       = utils.Timer(MAIN_LOOP_TIME)

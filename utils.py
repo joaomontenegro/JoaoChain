@@ -2,12 +2,13 @@ import time
 import ecdsa
 
 ### Byte Encoding/Decoding ###
-INT_BYTE_LEN  = 4
-ADDR_BYTE_LEN = 64
-ADDR_HEX_LEN  = ADDR_BYTE_LEN / 8
-SIGN_BYTE_LEN = 32
-HASH_BYTE_LEN = 32
+INT_BYTE_LEN     = 4
+ADDR_BYTE_LEN    = 64
+ADDR_HEX_LEN     = ADDR_BYTE_LEN * 2
+SIGN_BYTE_LEN    = 32
+HASH_BYTE_LEN    = 32
 MSGTYPE_BYTE_LEN = 12
+SHORTEN_BYTE_LEN = 8
 
 def IntToBytes(i, size=INT_BYTE_LEN):
     return i.to_bytes(size, "big")
@@ -30,6 +31,9 @@ def ZeroAddr():
 
 def ZeroHash():
     return IntToBytes(0, HASH_BYTE_LEN)
+
+def Shorten(data):
+    return data.hex()[:SHORTEN_BYTE_LEN]
 
 ### Cryptography ###
 

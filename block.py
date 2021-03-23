@@ -39,17 +39,16 @@ class Block:
         return hashlib.sha256(b).digest()
 
     def __repr__(self):
-        HASH_STR_LEN = 8
 
         if self.parent is None:
             p = 'ROOT'
         else:
-            p = self.parent.hex()[:HASH_STR_LEN]
+            p = utils.Shorten(self.parent)
 
         return 'Block{%s, p:%s, m:%s, t:%d, tx:%d, n:%d}' % (
-            self.GetHash().hex()[:HASH_STR_LEN],
+            utils.Shorten(self.GetHash()),
             p,
-            self.miner.hex()[:HASH_STR_LEN],
+            utils.Shorten(self.miner),
             self.timestamp,
             len(self.transactions),
             self.nonce)
