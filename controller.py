@@ -12,7 +12,8 @@ import random
 
 # TODO: add a config
 VERSION = 1
-INITIAL_ADDRS = [("PORTO", 5001)]
+#INITIAL_ADDRS = [("PORTO", 5001)]
+INITIAL_ADDRS = [("PORTO", 5001), ("18.217.77.113", 5001)]
 DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
@@ -281,7 +282,7 @@ class Controller:
 
 def Usage():
     print("USAGE: controller.py [PORT]")
-    print("     | controller.py server [PORT RPC_PORT]")
+    print("     | controller.py rpc [PORT RPC_PORT]")
     print("     | controller.py miner [PRIV_KEY PUB_KEY] [PORT]")
     print("     | controller.py genkeys")
     print("     | controller.py help")
@@ -306,7 +307,7 @@ if __name__ == '__main__':
         print("Private Key: %s" % utils.BytesToPrivKeyStr(privateKey))
         print("Public Key:  %s" % utils.BytesToAddrStr(publicKey))
 
-    elif sys.argv[1] == "server":
+    elif sys.argv[1] == "rpc":
         port = int(sys.argv[2]) if numArgs > 2 else 5001
         rpcPort = int(sys.argv[3]) if numArgs > 3 else 4001
         
