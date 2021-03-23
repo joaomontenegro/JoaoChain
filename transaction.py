@@ -44,7 +44,12 @@ class Transaction:
             return False
         return self.GetHash() == other.GetHash()
 
-MSG_LEN = 104 # 32 + 32 + 4 + 4 + 32
+MSG_LEN = (utils.ADDR_BYTE_LEN  + # fromAddr
+            utils.ADDR_BYTE_LEN + # toAddr
+            utils.INT_BYTE_LEN  + # amount
+            utils.INT_BYTE_LEN  + # nonce
+            utils.SIGN_BYTE_LEN   # signature
+            )
 
 def EncodeTx(tx):
     if tx.signature is None:
@@ -54,20 +59,40 @@ def EncodeTx(tx):
     out += utils.IntToBytes(tx.amount)
     out += utils.IntToBytes(tx.nonce)
     out += tx.signature
+
+    if len(out) != MSG_LEN:
+        raise ValueError("Invalid Tx size: %d" % len(out))
+
     return out
 
 def DecodeTx(txBytes):
     l = len(txBytes)
     if l < MSG_LEN:
-        print("Invalid Tx size: ", len(txBytes))
-        return None
+        raise ValueError("Invalid Tx size: %d" % len(txBytes))
     
-    fromAddr = txBytes[:32]
-    toAddr = txBytes[32:64]
-    amount = utils.BytesToInt(txBytes[64:68])
-    nonce = utils.BytesToInt(txBytes[68:72])
-    signature = txBytes[72:MSG_LEN]
+    start = 0
+    end = utils.ADDR_BYTE_LEN
+    fromAddr = txBytes[start:end]
     
+    start = end
+    end += utils.ADDR_BYTE_LEN
+    toAddr = txBytes[start:end]
+
+    start = end
+    end += utils.INT_BYTE_LEN
+    amount = utils.BytesToInt(txBytes[start:end])
+    
+    start = end
+    end += utils.INT_BYTE_LEN
+    nonce = utils.BytesToInt(txBytes[start:end])
+    
+    start = end
+    end += utils.SIGN_BYTE_LEN
+    signature = txBytes[start:end]
+    
+    if end != MSG_LEN:
+        raise ValueError("Invalid tx length: %d" % end)
+
     tx = Transaction(fromAddr, toAddr, amount, nonce)
     tx.Sign(signature)    
     return tx

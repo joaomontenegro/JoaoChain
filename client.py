@@ -52,16 +52,19 @@ class Client(network.Client):
             return []
 
         msgType, msg = self.Receive()
-        if msgType == 'Mempool' and msg and len(msg) >= 4:
-            pos = 4
-            numTx = utils.BytesToInt(msg[:pos])
-            if len(msg) != 4 + numTx * transaction.MSG_LEN:
+        if msgType == 'Mempool' and msg and len(msg) >= utils.INT_BYTE_LEN:
+            start = 0
+            end = utils.INT_BYTE_LEN
+            numTx = utils.BytesToInt(msg[start:end])
+            
+            start = end
+            end += numTx * transaction.MSG_LEN
+            if len(msg) != end:
                 return []
-            for _i in range(numTx):
-                nextPos = pos + transaction.MSG_LEN
-                tx = transaction.DecodeTx(msg[pos:nextPos])
+            
+            for i in range(start, end, transaction.MSG_LEN):
+                tx = transaction.DecodeTx(msg[i:i+transaction.MSG_LEN])
                 mempool.append(tx)
-                pos = nextPos
 
         return mempool
 
@@ -86,23 +89,34 @@ class Client(network.Client):
             msgLen = len(msg)
         else:
             msgLen = 0
-        if msgType != "Hashes" or not msg or msgLen < 4:
+        if msgType != "Hashes" or not msg:
             return 0, None
 
         # Get peer height
-        peerHeight = utils.BytesToInt(msg[:4])
-        if peerHeight <= height or msgLen < 8:
+        start = 0
+        end = utils.INT_BYTE_LEN
+        if msgLen < end:
+            return 0, None
+        peerHeight = utils.BytesToInt(msg[start:end])
+        if peerHeight <= height:
             return 0, None
 
         # Get number of hashes
-        numHashes = utils.BytesToInt(msg[4:8])
-        if msgLen != 8 + 32 * numHashes:
+        start = end
+        end += utils.INT_BYTE_LEN
+        if msgLen < end:
+            return 0, None
+        numHashes = utils.BytesToInt(msg[start:end])
+
+        start = end
+        if msgLen != end + utils.HASH_BYTE_LEN * numHashes:
             return 0, None
 
         # Get hashes
         hashes = []
-        for i in range(8, msgLen, 32):
-            hashes.append(msg[i:i + 32])
+        step = utils.HASH_BYTE_LEN
+        for i in range(start, msgLen, step):
+            hashes.append(msg[i:i+step])
 
         return peerHeight, hashes
 
@@ -118,22 +132,22 @@ class Client(network.Client):
         # Receive response
         msgType, msg = self.Receive()
         msgLen = len(msg)
-        if msgType == "Blocks" and msg and msgLen < 4:
+        if msgType == "Blocks" and msg and msgLen < utils.INT_BYTE_LEN:
             return None
 
-        numBlocks = utils.BytesToInt(msg[:4])
+        numBlocks = utils.BytesToInt(msg[:utils.INT_BYTE_LEN])
         blocks = []
-        pos = 4
+        start = utils.INT_BYTE_LEN
         for _ in range(numBlocks):
-            if pos >= len(msg):
+            if start >= len(msg):
                 return None
             
-            b = block.DecodeBlock(msg[pos:])
+            b = block.DecodeBlock(msg[start:])
             if b is None:
                 return []
             
             blocks.append(b)
-            pos += b.byteSize
+            start += b.byteSize
         
         return blocks
 

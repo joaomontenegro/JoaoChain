@@ -17,11 +17,11 @@ DEFAULT_SERVER_PORT = 5001
 DEFAULT_RPC_PORT = 4001
 MAIN_LOOP_TIME = 0.1
 UPDATE_PEERS_TIME = 5.0
-UPDATE_MEMPOOL_TIME = 1.0
+UPDATE_MEMPOOL_TIME = 2.0
 CLEAN_MEMPOOL_TIME = 10.0
-CLEAN_MEMPOOL_MINUTES_AGO = 30.0
-SYNC_BLOCKCHAIN_TIME = 5
-NUM_PEERS = 5
+CLEAN_MEMPOOL_MINUTES_AGO = 60.0
+SYNC_BLOCKCHAIN_TIME = 5.0
+NUM_PEERS = 5 # TODO: find a way of not limiting the size of the network!!!
 DIFFICULTY = 5
 
 doLog = True
@@ -239,11 +239,11 @@ class Controller:
         self.minedBlock = self.blockchain.Mine(self.minerAddr)
 
     def _BroadcastBlock(self, bl):
-        return ###TODO
         for peer in self.peers:
             peer.AddBlock(bl)
 
     def _SyncBlocks(self):
+        # TODO: look for a higher peer?
         peer = self._GetRandomPeer()
         if not peer:
             return
@@ -283,10 +283,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == "server":
         c = Controller()
         c.Start(True, 5001, True, 4001)
+    
     elif len(sys.argv) > 1 and sys.argv[1] == "miner":
-        minerAddr = hashlib.sha256(b'miner123').digest()
+        minerAddr = utils.GenerateKeys()[1]
         c = Controller(minerAddr=minerAddr)
         c.Start(True, 5002, True, 4002)
+    
     else:    
         c = Controller()
         #port = int(sys.argv[1])

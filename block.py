@@ -63,15 +63,18 @@ class Block:
 def EncodeBlock(bl):
     if bl.signature is None:
         return None
+    
     if bl.parent is None:
-        out = utils.IntToBytes(0, 32)
+        out = utils.ZeroHash()
     else:
         out = bl.parent
+    
     out += utils.IntToBytes(bl.nonce)
     out += utils.IntToBytes(bl.timestamp)
     out += bl.miner
     out += bl.signature
     out += utils.IntToBytes(len(bl.transactions))
+    
     for tx in bl.transactions:
         out += transaction.EncodeTx(tx)
 
@@ -79,28 +82,42 @@ def EncodeBlock(bl):
     
 #todo: add test
 def DecodeBlock(blBytes):
-    parent = blBytes[:32]
-    if parent == utils.IntToBytes(0, 32):
+    start = 0
+    end = utils.HASH_BYTE_LEN
+    parent = blBytes[start:end]
+    if parent == utils.ZeroHash():
         parent = None
-    nonce = utils.BytesToInt(blBytes[32:36])
-    timestamp = utils.BytesToInt(blBytes[36:40])
-    miner = blBytes[40:72]
-    signature = blBytes[72:104]
-    numTx = utils.BytesToInt(blBytes[104:108])
+    
+    start = end
+    end += utils.INT_BYTE_LEN
+    nonce = utils.BytesToInt(blBytes[start:end])
 
-    byteSize = 108
-    start = 108
+    start = end
+    end += utils.INT_BYTE_LEN
+    timestamp = utils.BytesToInt(blBytes[start:end])
+
+    start = end
+    end += utils.ADDR_BYTE_LEN
+    miner = blBytes[start:end]
+    
+    start = end
+    end += utils.SIGN_BYTE_LEN
+    signature = blBytes[start:end]
+    
+    start = end
+    end += utils.INT_BYTE_LEN
+    numTx = utils.BytesToInt(blBytes[start:end])
+
     transactions = []
     for _ in range(numTx):
-        end = start + transaction.MSG_LEN
+        start = end
+        end += transaction.MSG_LEN
         tx = transaction.DecodeTx(blBytes[start:end])
         if tx:
             transactions.append(tx)
-        start = end
-        byteSize += transaction.MSG_LEN
     
     bl = Block(parent, transactions, timestamp, miner, nonce)
-    bl.byteSize = byteSize
+    bl.byteSize = end
     bl.Sign(signature)
 
     if not bl.ValidateSignature():

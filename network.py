@@ -11,7 +11,7 @@ def GetHostname():
 
 class Message:
     def __init__(self, msgType, payload):
-        self.msgType = msgType[:12]
+        self.msgType = msgType[:utils.MSGTYPE_BYTE_LEN]
         self.payload = payload
 
 class Socket():
@@ -49,14 +49,14 @@ class Socket():
         return self.sock != None
 
     def Send(self, msgType, payload=b''):
-        if len(msgType) > 12:
-            raise ConnectionError("MsgType > 12 letters:", msgType)
+        if len(msgType) > utils.MSGTYPE_BYTE_LEN:
+            raise ConnectionError("MsgType > %d letters: %s" % (utils.MSGTYPE_BYTE_LEN, msgType))
 
         totalSent = 0
         payloadLen = len(payload)
-        msgLen = 12 + 4 + payloadLen # type|size|payload
+        msgLen = utils.MSGTYPE_BYTE_LEN + utils.INT_BYTE_LEN + payloadLen # type|size|payload
 
-        b = msgType.ljust(12).encode()
+        b = msgType.ljust(utils.MSGTYPE_BYTE_LEN).encode()
         b += utils.IntToBytes(payloadLen)
         b += payload
         
@@ -68,11 +68,13 @@ class Socket():
 
     def Receive(self):
         # Type and Size 
-        chunk = self.sock.recv(12 + 4)
+        chunk = self.sock.recv(utils.MSGTYPE_BYTE_LEN + utils.INT_BYTE_LEN)
         if chunk == b'':
             raise ConnectionError("socket connection broken")
-        msgType = chunk[:12].decode().rstrip()
-        payloadLen = utils.BytesToInt(chunk[12:16])
+        msgType = chunk[:utils.MSGTYPE_BYTE_LEN].decode().rstrip()
+        start = utils.MSGTYPE_BYTE_LEN
+        end = start + utils.INT_BYTE_LEN
+        payloadLen = utils.BytesToInt(chunk[start:end])
 
         chunks = []
         bytesReceived = 0

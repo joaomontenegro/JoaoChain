@@ -39,7 +39,7 @@ class Server(network.Server):
         self.controller.blockchain.AddBlock(bl)
         
     def _SyncBlocks(self, clientSock, clientAddress, msgType, msg):
-        if not msg or len(msg) != 4:
+        if not msg or len(msg) != utils.INT_BYTE_LEN:
             clientSock.Send('HashesNO')
             return
 
@@ -60,18 +60,23 @@ class Server(network.Server):
     def _GetBlocks(self, clientSock, clientAddress, msgType, msg):
         msgLen = len(msg)
 
-        if not msg or msgLen < 4:
+        start = 0
+        end = utils.INT_BYTE_LEN
+        if not msg or msgLen < end:
             clientSock.Send('BlocksNo')
             return
-
-        numHashes = utils.BytesToInt(msg[:4])
-        if numHashes < 1 or msgLen != 4 + 32 * numHashes:
+        
+        numHashes = utils.BytesToInt(msg[start:end])
+        start = end
+        end += numHashes * utils.HASH_BYTE_LEN
+        if numHashes < 1 or msgLen != end:
             clientSock.Send('BlocksNo')
             return
 
         blocksMsg = utils.IntToBytes(numHashes)
-        for pos in range(4, numHashes * 32, 32):
-            blockHash = msg[pos:pos+32]
+        step = utils.HASH_BYTE_LEN
+        for i in range(start, end, step):
+            blockHash = msg[i:i+step]
             b = self.controller.blockchain.GetBlock(blockHash)
             if b is None:
                 # TODO: currently bails if block not found
@@ -112,7 +117,7 @@ class Server(network.Server):
                 msg += txBytes
                 numTx += 1        
 
-        return utils.IntToBytes(numTx, 4) + msg
+        return utils.IntToBytes(numTx) + msg
 
     def __GetServerAddrFromMsg(self, msg):
         (hostname, port) = msg.decode().split(':')

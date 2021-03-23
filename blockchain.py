@@ -30,7 +30,7 @@ class Blockchain:
         self.difficulty = newDifficulty
 
     def AddBlock(self, b):
-        print (" ======== Adding Block:", b)
+        print ("Adding Block:", b)
         hash = b.GetHash()
 
         #TODO: check if block is already present in chain
@@ -64,7 +64,6 @@ class Blockchain:
 
             # Get the parent height   
             parent = self.blocks.get(b.parent, None)
-            print (" ==== PARENT: ", parent)
             if parent:
                 parentHeight = parent.height
             else:
@@ -79,8 +78,6 @@ class Blockchain:
             b.height    = parentHeight + 1
             b.timeAdded = utils.GetCurrentTime()
             b.balances  = blockBalances
-
-            print("---------HEIGHT--->", parentHeight, b.height )
 
             # Add the block
             self.blocks[hash] = b

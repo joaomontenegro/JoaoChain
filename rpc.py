@@ -14,6 +14,7 @@ class RPCServer(network.Server):
 
     def _AddTx(self, clientSock, clientAddress, msgType, msg):
         tx = transaction.DecodeTx(msg)
+
         if self.controller.blockchain.AddTransaction(tx):
             clientSock.Send('TxOK')
         else:
@@ -47,7 +48,7 @@ class RPCClient(network.Client):
         self.Send('GetBalance', addr)
         msgType, msg = self.Receive()
         if msgType == 'Balance':
-            return utils.BytesToInt(msg[0:4])
+            return utils.BytesToInt(msg[0:utils.INT_BYTE_LEN])
         return None
 
 
@@ -68,8 +69,8 @@ if __name__ == '__main__':
             print('Version: %d' % client.Version())
         
         elif msgType.lower() == "tx":
-            fromAddr = hashlib.sha256(b'1111').digest()
-            toAddr = hashlib.sha256(b'2222').digest()
+            fromAddr = utils.GenerateKeys()[1]
+            toAddr = utils.GenerateKeys()[1]
             amount = 0
             nonce = random.randint(0, 10000)
             tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
