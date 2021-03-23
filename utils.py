@@ -4,11 +4,11 @@ import ecdsa
 ### Byte Encoding/Decoding ###
 INT_BYTE_LEN     = 4
 ADDR_BYTE_LEN    = 64
-ADDR_HEX_LEN     = ADDR_BYTE_LEN * 2
 SIGN_BYTE_LEN    = 64
 HASH_BYTE_LEN    = 32
 MSGTYPE_BYTE_LEN = 12
 SHORTEN_BYTE_LEN = 8
+PRIVKEY_BYTE_LEN = 32
 
 def IntToBytes(i, size=INT_BYTE_LEN):
     return i.to_bytes(size, "big")
@@ -17,7 +17,7 @@ def BytesToInt(b):
     return int.from_bytes(b, "big")
 
 def AddrStrToBytes(addrStr):
-    if len(addrStr) != ADDR_HEX_LEN:
+    if len(addrStr) != ADDR_BYTE_LEN * 2:
         raise ValueError("Invalid addr string size: %d" % len(addrStr))
     return bytes.fromhex(addrStr)
 
@@ -28,6 +28,16 @@ def BytesToAddrStr(addr):
 
 def ZeroAddr():
     return IntToBytes(0, ADDR_BYTE_LEN)
+
+def PrivKeyStrToBytes(privKeyStr):
+    if len(privKeyStr) != PRIVKEY_BYTE_LEN * 2:
+        raise ValueError("Invalid private key string size: %d" % len(privKeyStr))
+    return bytes.fromhex(privKeyStr)
+
+def BytesToPrivKeyStr(privKey):
+    if len(privKey) != PRIVKEY_BYTE_LEN:
+        raise ValueError("Invalid private key byte size: %d" % len(privKey))
+    return privKey.hex()
 
 def ZeroHash():
     return IntToBytes(0, HASH_BYTE_LEN)

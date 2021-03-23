@@ -57,7 +57,13 @@ if __name__ == '__main__':
     import sys
     import hashlib
 
-    if len(sys.argv) > 3:
+    if len(sys.argv) == 2: 
+        if sys.argv[1] == "genkeys":
+            privateKey, publicKey = utils.GenerateKeys()
+            print("Private Key: %s" % utils.BytesToPrivKeyStr(privateKey))
+            print("Public Key:  %s" % utils.BytesToAddrStr(publicKey))
+
+    elif len(sys.argv) > 3:
         hostname = sys.argv[1]
         port = int(sys.argv[2])
         msgType = sys.argv[3]
@@ -67,13 +73,21 @@ if __name__ == '__main__':
 
         if msgType.lower() == "version":
             print('Version: %d' % client.Version())
-        
+
         elif msgType.lower() == "tx":
-            privateKey, publicKey = utils.GenerateKeys()
-            fromAddr = publicKey
-            toAddr = utils.GenerateKeys()[1]
-            amount = 0
-            nonce = random.randint(0, 10000)
+            if len(sys.argv) > 5:
+                privateKey = utils.PrivKeyStrToBytes(sys.argv[4])
+                fromAddr   = utils.AddrStrToBytes(sys.argv[5])
+                toAddr     = utils.AddrStrToBytes(sys.argv[6])
+                amount     = int(sys.argv[7])
+                nonce      = int(sys.argv[8])
+            else:
+                privateKey, publicKey = utils.GenerateKeys()
+                fromAddr = publicKey
+                toAddr = utils.GenerateKeys()[1]
+                amount = 0
+                nonce = random.randint(0, 10000)
+            
             tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
             tx.Sign(privateKey)
             if client.AddTx(tx):

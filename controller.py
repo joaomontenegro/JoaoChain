@@ -260,15 +260,12 @@ class Controller:
         if peerHeight <= height:
             return
 
-        # TODO: CHECK THESE REVERSED BLOCKS
-
         if height == 0:
             newBlockHashes = blockHashes
         else :
             newBlockHashes = []
             # todo: optimize
             for i in reversed(range(len(blockHashes))):
-                #TODO: This is somehow returning the wrong block...!!!
                 blockHash = blockHashes[i]
                 if self.blockchain.HasBlock(blockHash):
                     newBlockHashes = blockHashes[i + 1:]
@@ -277,7 +274,6 @@ class Controller:
         #TODO: ask new blocks to several peers, rather than just this
         if newBlockHashes:
             newBlocks = peer.GetBlocks(newBlockHashes)
-            # TODO: check if blocks form a chain
             if newBlocks:
                 self.blockchain.AddBlocks(newBlocks)
 
