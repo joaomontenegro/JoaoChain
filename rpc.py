@@ -108,20 +108,19 @@ if __name__ == '__main__':
                 print ('Failed:', tx)
 
         elif msgType == "randomtxs":
-            timerMainLoop = utils.Timer(0.5)
+            timerMainLoop = utils.Timer(1.0)
             while True:
-                if random.randint(0, 4) == 0:
-                    privateKey, publicKey = utils.GenerateKeys()
-                    fromAddr = publicKey
-                    toAddr = utils.GenerateKeys()[1]
-                    amount = 0
-                    nonce = random.randint(0, 10000)
-                    tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
-                    tx.Sign(privateKey)
-                    if client.AddTx(tx):
-                        print('Added:', tx)
-                    else:
-                        print ('Failed:', tx)
+                privateKey, publicKey = utils.GenerateKeys()
+                fromAddr = publicKey
+                toAddr = utils.GenerateKeys()[1]
+                amount = 0
+                nonce = random.randint(0, 10000)
+                tx = transaction.Transaction(fromAddr, toAddr, amount, nonce)
+                tx.Sign(privateKey)
+                if client.AddTx(tx):
+                    print('Added:', tx)
+                else:
+                    print ('Failed:', tx)
                 
                 timerMainLoop.SleepUntilDone()
                 timerMainLoop.Reset()

@@ -69,22 +69,26 @@ def ValidateSignature(data, signature, publicKey):
 
 ### Time ###
 
-def GetCurrentTime():
-    return int(round(time.time()))
+def GetCurrentTime(asInt=True):
+    if asInt:
+        return int(round(time.time()))
+    else:
+        return time.time()
 
 class Timer:
-    def __init__(self, interval, startDone=False):
+    def __init__(self, interval=1.0, startDone=False, asInt=True):
         self.interval = interval
+        self.asInt = asInt
         if startDone:
             self.starTime = 0
         else:    
-            self.starTime = GetCurrentTime()
+            self.starTime = GetCurrentTime(self.asInt)
 
     def Reset(self, interval=None):
-        self.starTime = GetCurrentTime()
+        self.starTime = GetCurrentTime(self.asInt)
 
     def GetEllapsed(self):
-        return GetCurrentTime() - self.starTime
+        return GetCurrentTime(self.asInt) - self.starTime
 
     def GetRemaining(self):
         return max(self.interval - self.GetEllapsed(), 0)
