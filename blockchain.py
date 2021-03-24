@@ -7,7 +7,7 @@ import transaction
 import utils
 import threading
 
-MAX_TX_PER_BLOCK = 10
+MAX_TX_PER_BLOCK = 100
 
 doLog = True
 def Log(msg):

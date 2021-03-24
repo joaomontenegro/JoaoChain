@@ -55,7 +55,7 @@ class RPCClient(network.Client):
 
 
 def Usage(extraCmds = ""):
-    print ("Usage: rpc.py [genkeys] | [version,tx,randomtxs,badtx] HOSTNAME PORT | [balance] ADDR")
+    print ("Usage: rpc.py [genkeys] | [version,tx,randomtxs,badtx] HOSTNAME PORT | [balance] HOSTNAME PORT ADDR")
 
 if __name__ == '__main__':
 
