@@ -1,13 +1,14 @@
 import hashlib
 import time
 from collections import OrderedDict
+import random
+import threading
 
 import block
 import transaction
 import utils
-import threading
 
-MAX_TX_PER_BLOCK = 100
+MAX_TX_PER_BLOCK = 10
 
 doLog = True
 def Log(msg):
@@ -200,7 +201,7 @@ class Blockchain:
             if self._stopMining:
                 self._miningHeight = None
                 return None
-            b.nonce += 1
+            b.nonce += random.randint(1, 100)
         
         # Todo properly sign:
         b.Sign(privateKey)
