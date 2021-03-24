@@ -87,8 +87,6 @@ class Blockchain:
             # Add the block
             self.blocks[hash] = b
 
-            print ( " ====> ", self._miningHeight, b.height)
-
             if self._miningHeight is not None and self._miningHeight <= b.height:
                 self.StopMining()
         
@@ -211,7 +209,7 @@ class Blockchain:
         return b
 
     def StopMining(self):
-        Log("=====> Aborting Mining!")
+        Log("Aborting Mining!")
         self._stopMining = True
 
     def AddTransaction(self, tx):
