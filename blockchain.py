@@ -26,6 +26,9 @@ class Blockchain:
         self.mempoolLock = threading.Lock()
         self.blockLock   = threading.Lock()
 
+        self._stopMining   = False
+        self._miningHeight = None
+
     def SetDifficulty(self, newDifficulty):
         self.difficulty = newDifficulty
 
@@ -83,6 +86,11 @@ class Blockchain:
 
             # Add the block
             self.blocks[hash] = b
+
+            print ( " ====> ", self._miningHeight, b.height)
+
+            if self._miningHeight is not None and self._miningHeight <= b.height:
+                self.StopMining()
         
         return True
 
@@ -128,9 +136,12 @@ class Blockchain:
             return self._GetBalanceInChain(addr, chain)
             
     def Mine(self, miner, privateKey, maxNumTx=MAX_TX_PER_BLOCK):
-        Log ("Mining...")
         if not self.HasMemPool():
             return None
+
+        self._stopMining = False
+        self._miningHeight = self.GetHeight()
+        Log ("Mining...")
 
         parentHash = self.highest
         if parentHash:
@@ -188,12 +199,20 @@ class Blockchain:
         
         # Mine it
         while(not self._ValidatePow(b)):
+            if self._stopMining:
+                self._miningHeight = None
+                return None
             b.nonce += 1
         
         # Todo properly sign:
         b.Sign(privateKey)
 
+        self._miningHeight = None
         return b
+
+    def StopMining(self):
+        Log("=====> Aborting Mining!")
+        self._stopMining = True
 
     def AddTransaction(self, tx):
         txHash = tx.GetHash()

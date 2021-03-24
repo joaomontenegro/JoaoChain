@@ -39,10 +39,13 @@ class Controller:
         self.serverThread = None
         self.rpc          = None
         self.rpcThread    = None
+        
         self.minerAddr    = minerAddr
         self.privateKey   = privateKey # TODO: use a callback that safely decrypts and returns the private key
+        
         self.minedBlock   = None
         self.minerThread  = None
+        
         self.peerLock     = threading.Lock()
 
         if minerAddr and not privateKey:
@@ -116,9 +119,9 @@ class Controller:
                         self.minerThread = threading.Thread(name='Miner',
                                                             target=self._Mine)
                         self.minerThread.start()
-                    elif self.minedBlock:
+                    elif self.minerThread and not self.minerThread.is_alive():
                         # Add block and broadcast it
-                        if self.blockchain.AddBlock(self.minedBlock):
+                        if self.minedBlock and self.blockchain.AddBlock(self.minedBlock):
                             self._BroadcastBlock(self.minedBlock)
                         self.minerThread.join()
                         self.minerThread = None
@@ -133,6 +136,9 @@ class Controller:
 
             if self.rpcThread and self.rpcThread.is_alive():
                 self.rpc.Stop()
+
+            if self.minerThread and self.minerThread.is_alive():
+                self.blockchain.StopMining()
 
             raise
 
@@ -244,7 +250,8 @@ class Controller:
 
         self.minedBlock = self.blockchain.Mine(self.minerAddr,
                                                self.privateKey)
-        Log("Mined Block %s" % utils.Shorten(self.minedBlock.GetHash()))
+        if self.minedBlock:
+            Log("Mined Block %s" % utils.Shorten(self.minedBlock.GetHash()))
 
     def _BroadcastBlock(self, bl):
         for peer in self.peers:
@@ -279,7 +286,6 @@ class Controller:
             newBlocks = peer.GetBlocks(newBlockHashes)
             if newBlocks:
                 self.blockchain.AddBlocks(newBlocks)
-
 
 def Usage():
     print("USAGE: controller.py [PORT]")
