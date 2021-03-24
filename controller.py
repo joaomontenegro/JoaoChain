@@ -144,6 +144,7 @@ class Controller:
             return self._GetPeerAddrs()
 
     def AddPeer(self, hostname, port):
+        # TODO: Check if hostname is my ip!! maybe use a hash per client?
         with self.peerLock:
             if not self._HasPeer(hostname, port) and not self._IsMe(hostname, port):
                 peer = client.Client(hostname, port, self)

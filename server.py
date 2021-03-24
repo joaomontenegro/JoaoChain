@@ -23,8 +23,9 @@ class Server(network.Server):
             addrsBytes = self.__GetAddrsMsg()
             clientSock.Send('Addrs', addrsBytes) 
             if msg:
-                (hostname, port) = self.__GetServerAddrFromMsg(msg)
-                self.controller.AddPeer(hostname, port)
+                port = utils.BytesToInt(msg)
+                clientHost = clientAddress[0]
+                self.controller.AddPeer(clientHost, port)
 
     def _GetMempool(self, clientSock, clientAddress, msgType, msg):
         #TODO: get random sample
@@ -88,9 +89,10 @@ class Server(network.Server):
         clientSock.Send('Blocks', blocksMsg)
 
     def _Close(self, clientSock, clientAddress, msgType, msg):
-        if msg :
-            (hostname, port) = self.__GetServerAddrFromMsg(msg)
-            self.controller.RemovePeer(hostname, port)
+        if msg:
+            port = utils.BytesToInt(msg)
+            clientHost = clientAddress[0]
+            self.controller.RemovePeer(clientHost, port)
         clientSock.Close()
 
     def _Stop(self, clientSock, clientAddress, msgType, msg):
@@ -120,7 +122,7 @@ class Server(network.Server):
         return utils.IntToBytes(numTx) + msg
 
     def __GetServerAddrFromMsg(self, msg):
-        (hostname, port) = msg.decode().split(':')
+        (hostname, port) = msg.decode()
         return (hostname, int(port))
 
     def __GetBlockAddrsMessage(self, chain):

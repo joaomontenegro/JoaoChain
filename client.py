@@ -32,7 +32,12 @@ class Client(network.Client):
     def GetAddrs(self):
         addrs = []
 
-        if not self.Send('GetAddrs', self.__GetServerAddrMsg()):
+        if self.controller.server:
+            outMsg = utils.IntToBytes(self.controller.server.port)
+        else:
+            outMsg = b''
+
+        if not self.Send('GetAddrs', outMsg):
             return addrs
         
         msgType, msg = self.Receive()
@@ -152,13 +157,9 @@ class Client(network.Client):
         return blocks
 
     def Close(self):
-        self.Send('Close', self.__GetServerAddrMsg())
-        super().Close()
-
-    #######################
-   
-    def __GetServerAddrMsg(self):
         if self.controller.server:
-            serverPort = self.controller.server.port
-            return ("%s:%d" % (network.GetHostname(), serverPort)).encode()
-        return b''
+            msg = utils.IntToBytes(self.controller.server.port)
+        else:
+            msg = b''
+        self.Send('Close', msg)
+        super().Close()
